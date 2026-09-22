@@ -1,1 +1,533 @@
 
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#111827">
+<title>Gritex</title>
+
+<style>
+*{box-sizing:border-box}
+body{
+ margin:0;
+ font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display",Arial,sans-serif;
+ background:#0b1020;
+ color:white;
+}
+main{max-width:700px;margin:auto;padding:22px 16px 40px}
+h1{margin:0;font-size:32px}
+.sub{color:#94a3b8;font-size:14px;margin-top:4px}
+.head{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
+.tabs{display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;margin-bottom:16px}
+button{
+ min-height:44px;
+ border:1px solid #263247;
+ border-radius:14px;
+ background:#151e30;
+ color:white;
+ font-weight:700;
+ padding:9px 12px;
+}
+button.active,button.primary{background:#7c3aed;border-color:#7c3aed}
+.card{
+ background:#131c2d;
+ border:1px solid #263247;
+ border-radius:20px;
+ padding:16px;
+ margin-bottom:12px;
+}
+.row{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.title{font-size:18px;font-weight:800}
+.muted{color:#94a3b8;font-size:14px}
+.week{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.day{text-align:center;padding:8px 3px;border-radius:13px}
+.day.sel{background:#7c3aed}
+.num{font-size:17px;margin-top:4px}
+.dot{width:6px;height:6px;background:#a78bfa;border-radius:50%;margin:5px auto 0}
+.empty{text-align:center;color:#94a3b8;padding:25px 5px}
+.actions{display:flex;gap:6px}
+.actions button{min-height:40px;padding:6px 10px}
+.bottom{display:flex;gap:8px;margin-top:12px}
+.bottom button{flex:1}
+input,select{
+ width:100%;
+ min-height:46px;
+ border:1px solid #334155;
+ border-radius:12px;
+ background:#0f172a;
+ color:white;
+ padding:9px 11px;
+ margin:5px 0 12px;
+ font-size:16px;
+}
+.formgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.hide{display:none}
+.check{display:flex;gap:8px;align-items:center;margin-bottom:12px}
+.check input{width:auto;margin:0}
+</style>
+</head>
+
+<body>
+<main>
+
+<div class="head">
+ <div>
+  <h1>Gritex</h1>
+  <div class="sub">Dein persönlicher Trainingsplan</div>
+ </div>
+ <div style="font-size:30px">🏃</div>
+</div>
+
+<div class="tabs">
+ <button class="tab active" data-page="calendar">Kalender</button>
+ <button class="tab" data-page="week">Wochenplan</button>
+ <button class="tab" data-page="notify">🔔</button>
+</div>
+
+<section id="calendarPage">
+
+<div class="card">
+ <div class="row">
+  <button id="prev">‹</button>
+  <div style="text-align:center">
+   <div class="title" id="monthTitle"></div>
+   <div class="muted" id="weekTitle"></div>
+  </div>
+  <button id="next">›</button>
+ </div>
+</div>
+
+<div class="card">
+ <div class="week" id="days"></div>
+</div>
+
+<div id="selected"></div>
+
+</section>
+
+<section id="weekPage" class="hide">
+
+<div class="card">
+ <div class="row">
+  <div>
+   <div class="title">Wochenplan</div>
+   <div class="muted">Wiederholt sich jede Woche.</div>
+  </div>
+  <button class="primary" id="add">＋ Training</button>
+ </div>
+</div>
+
+<div id="plan"></div>
+
+</section>
+
+<section id="notifyPage" class="hide">
+
+<div class="card">
+ <div class="title">Tägliche Erinnerung</div>
+ <div class="muted" style="margin:6px 0 14px">
+  Wann möchtest du an dein Training erinnert werden?
+ </div>
+
+ <label>Uhrzeit</label>
+ <input id="time" type="time">
+
+ <button class="primary" id="saveTime" style="width:100%">
+  Speichern
+ </button>
+
+ <div id="saved" class="muted" style="margin-top:10px"></div>
+</div>
+
+</section>
+
+<div id="modal" class="card hide">
+
+<div class="title" id="modalTitle">Training</div>
+
+<form id="form">
+
+<label>Training</label>
+<input id="name" required placeholder="z. B. 5 km lockerer Lauf">
+
+<div class="formgrid">
+
+<div>
+<label>Wochentag</label>
+<select id="weekday">
+<option value="0">Montag</option>
+<option value="1">Dienstag</option>
+<option value="2">Mittwoch</option>
+<option value="3">Donnerstag</option>
+<option value="4">Freitag</option>
+<option value="5">Samstag</option>
+<option value="6">Sonntag</option>
+</select>
+</div>
+
+<div>
+<label>Dauer</label>
+<input id="duration" placeholder="z. B. 45 min">
+</div>
+
+</div>
+
+<label class="check">
+<input id="rest" type="checkbox">
+Diesen Tag als Ruhetag markieren
+</label>
+
+<div class="bottom">
+<button type="button" id="cancel">Abbrechen</button>
+<button class="primary" type="submit">Speichern</button>
+</div>
+
+</form>
+</div>
+
+</main>
+
+<script>
+
+let data=[];
+let rests=new Set();
+let selected=new Date();
+let weekStart=new Date();
+let editId=null;
+
+const names=["Mo","Di","Mi","Do","Fr","Sa","So"];
+
+const $=id=>document.getElementById(id);
+
+function monday(d){
+ let x=new Date(d);
+ x.setHours(12,0,0,0);
+ x.setDate(x.getDate()-((x.getDay()+6)%7));
+ return x;
+}
+
+function key(d){
+ return d.toISOString().slice(0,10);
+}
+
+function esc(s){
+ return String(s).replace(/[&<>"']/g,m=>({
+  "&":"&amp;",
+  "<":"&lt;",
+  ">":"&gt;",
+  '"':"&quot;",
+  "'":"&#39;"
+ }[m]));
+}
+
+function load(){
+ try{
+  data=JSON.parse(localStorage.getItem("gritex-data")||"[]");
+  rests=new Set(JSON.parse(localStorage.getItem("gritex-rests")||"[]"));
+ }catch(e){}
+}
+
+function save(){
+ localStorage.setItem("gritex-data",JSON.stringify(data));
+ localStorage.setItem("gritex-rests",JSON.stringify([...rests]));
+}
+
+function renderDays(){
+
+ const el=$("days");
+ el.innerHTML="";
+
+ weekStart=monday(weekStart);
+
+ let end=new Date(weekStart);
+ end.setDate(end.getDate()+6);
+
+ $("monthTitle").textContent=
+  weekStart.toLocaleDateString("de-DE",{
+   month:"long",
+   year:"numeric"
+  });
+
+ $("weekTitle").textContent=
+  weekStart.toLocaleDateString("de-DE",{
+   day:"2-digit",
+   month:"2-digit"
+  })+" – "+
+  end.toLocaleDateString("de-DE",{
+   day:"2-digit",
+   month:"2-digit"
+  });
+
+ for(let i=0;i<7;i++){
+
+  let d=new Date(weekStart);
+  d.setDate(d.getDate()+i);
+
+  let b=document.createElement("button");
+
+  b.className="day"+
+   (key(d)===key(selected)?" sel":"");
+
+  b.innerHTML=
+   "<div>"+names[i]+"</div>"+
+   "<div class='num'>"+d.getDate()+"</div>"+
+   (
+    rests.has(key(d))
+    ?"<div>💤</div>"
+    :data.some(t=>+t.weekday===i)
+     ?"<div class='dot'></div>"
+     :""
+   );
+
+  b.onclick=()=>{
+   selected=d;
+   render();
+  };
+
+  el.appendChild(b);
+ }
+}
+
+function renderSelected(){
+
+ let el=$("selected");
+
+ let i=(selected.getDay()+6)%7;
+
+ let ts=data.filter(t=>+t.weekday===i);
+
+ el.innerHTML=
+ "<div class='card'>"+
+ "<div class='title'>"+
+ selected.toLocaleDateString("de-DE",{
+  weekday:"long",
+  day:"2-digit",
+  month:"long"
+ })+
+ "</div>"+
+
+ (
+  rests.has(key(selected))
+  ?"<div class='muted' style='margin-top:8px'>💤 Ruhetag</div>"
+  :
+  ts.length
+  ?
+  ts.map(t=>
+   "<div class='row' style='margin-top:14px'>"+
+   "<div>"+
+   "<div style='font-weight:750'>"+esc(t.name)+"</div>"+
+   "<div class='muted'>"+esc(t.duration||"")+"</div>"+
+   "</div>"+
+   "<div class='actions'>"+
+   "<button data-edit='"+t.id+"'>✏️</button>"+
+   "<button data-del='"+t.id+"'>🗑️</button>"+
+   "</div>"+
+   "</div>"
+  ).join("")
+  :
+  "<div class='empty'>Für diesen Tag ist noch kein Training geplant.</div>"
+ )+
+
+ "<div class='bottom'>"+
+ "<button id='addSelected'>＋ Training</button>"+
+ "<button id='restBtn'>"+
+ (rests.has(key(selected))
+  ?"Ruhetag entfernen"
+  :"💤 Ruhetag")+
+ "</button>"+
+ "</div></div>";
+
+ $("addSelected").onclick=()=>openForm(i);
+
+ $("restBtn").onclick=()=>{
+  rests.has(key(selected))
+   ?rests.delete(key(selected))
+   :rests.add(key(selected));
+
+  save();
+  render();
+ };
+
+ el.querySelectorAll("[data-edit]").forEach(x=>{
+  x.onclick=()=>{
+   let t=ts.find(t=>t.id===+x.dataset.edit);
+   openForm(+t.weekday,+t.id);
+  };
+ });
+
+ el.querySelectorAll("[data-del]").forEach(x=>{
+  x.onclick=()=>{
+   data=data.filter(t=>t.id!==+x.dataset.del);
+   save();
+   render();
+  };
+ });
+}
+
+function renderPlan(){
+
+ let el=$("plan");
+
+ el.innerHTML=names.map((n,i)=>{
+
+  let ts=data.filter(t=>+t.weekday===i);
+
+  return "<div class='card'>"+
+   "<div class='row'>"+
+   "<div>"+
+   "<div class='title'>"+n+"</div>"+
+   "<div class='muted'>Wiederholt jede Woche</div>"+
+   "</div>"+
+   "<button data-add='"+i+"'>＋</button>"+
+   "</div>"+
+
+   (
+    ts.length
+    ?
+    ts.map(t=>
+     "<div class='row' style='margin-top:12px'>"+
+     "<div>"+
+     "<b>"+esc(t.name)+"</b>"+
+     "<div class='muted'>"+esc(t.duration||"")+"</div>"+
+     "</div>"+
+     "<div class='actions'>"+
+     "<button data-e='"+t.id+"'>✏️</button>"+
+     "<button data-d='"+t.id+"'>🗑️</button>"+
+     "</div>"+
+     "</div>"
+    ).join("")
+    :
+    "<div class='muted' style='margin-top:10px'>Kein Training</div>"
+   )+
+   "</div>";
+
+ }).join("");
+
+ el.querySelectorAll("[data-add]").forEach(x=>{
+  x.onclick=()=>openForm(+x.dataset.add);
+ });
+
+ el.querySelectorAll("[data-e]").forEach(x=>{
+  x.onclick=()=>{
+   let t=data.find(t=>t.id===+x.dataset.e);
+   openForm(+t.weekday,+t.id);
+  };
+ });
+
+ el.querySelectorAll("[data-d]").forEach(x=>{
+  x.onclick=()=>{
+   data=data.filter(t=>t.id!==+x.dataset.d);
+   save();
+   render();
+  };
+ });
+}
+
+function openForm(day,id=null){
+
+ editId=id;
+
+ $("modal").classList.remove("hide");
+
+ $("modalTitle").textContent=
+  id?"Training bearbeiten":"Training hinzufügen";
+
+ let t=id?data.find(x=>x.id===id):null;
+
+ $("name").value=t?.name||"";
+ $("duration").value=t?.duration||"";
+ $("weekday").value=t?.weekday??day;
+
+ $("name").focus();
+}
+
+function close(){
+ $("modal").classList.add("hide");
+}
+
+function render(){
+ renderDays();
+ renderSelected();
+ renderPlan();
+}
+
+$("form").onsubmit=e=>{
+
+ e.preventDefault();
+
+ let n=$("name").value.trim();
+
+ if(!n)return;
+
+ let t={
+  id:editId||Date.now(),
+  name:n,
+  duration:$("duration").value.trim(),
+  weekday:+$("weekday").value
+ };
+
+ if(editId){
+  data=data.map(x=>x.id===editId?t:x);
+ }else{
+  data.push(t);
+ }
+
+ save();
+ close();
+ render();
+};
+
+$("cancel").onclick=close;
+
+$("add").onclick=()=>openForm(0);
+
+$("prev").onclick=()=>{
+ weekStart.setDate(weekStart.getDate()-7);
+ render();
+};
+
+$("next").onclick=()=>{
+ weekStart.setDate(weekStart.getDate()+7);
+ render();
+};
+
+document.querySelectorAll(".tab").forEach(b=>{
+
+ b.onclick=()=>{
+
+  document.querySelectorAll(".tab")
+   .forEach(x=>x.classList.remove("active"));
+
+  b.classList.add("active");
+
+  ["calendar","week","notify"].forEach(p=>{
+   $(p+"Page").classList.toggle(
+    "hide",
+    p!==b.dataset.page
+   );
+  });
+ };
+});
+
+$("time").value=
+ localStorage.getItem("gritex-time")||"18:00";
+
+$("saveTime").onclick=()=>{
+ localStorage.setItem(
+  "gritex-time",
+  $("time").value
+ );
+
+ $("saved").textContent=
+  "Gespeichert: täglich um "+
+  $("time").value+" Uhr.";
+};
+
+load();
+render();
+
+</script>
+
+</body>
+</html>
