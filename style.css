@@ -5,57 +5,116 @@
 body {
     margin: 0;
     font-family: Arial, sans-serif;
-    background: #f4f6f8;
-    color: #1f2937;
+    background: #f3f4f6;
+    color: #111827;
+}
+
+.app {
+    max-width: 600px;
+    margin: auto;
+    min-height: 100vh;
+    background: white;
 }
 
 header {
     background: #111827;
     color: white;
-    padding: 20px;
-    text-align: center;
+    padding: 25px 20px;
 }
 
 header h1 {
     margin: 0;
-    font-size: 30px;
+    font-size: 32px;
+}
+
+header p {
+    margin: 5px 0 0;
+    opacity: 0.7;
 }
 
 main {
-    max-width: 900px;
-    margin: 30px auto;
     padding: 20px;
 }
 
-.card {
+.welcome h2 {
+    margin-bottom: 5px;
+}
+
+.welcome p {
+    color: #6b7280;
+}
+
+.sports {
+    display: flex;
+    gap: 10px;
+    margin: 25px 0;
+}
+
+.sport {
+    flex: 1;
+    padding: 15px 5px;
+    border: 2px solid #e5e7eb;
     background: white;
-    border-radius: 16px;
-    padding: 20px;
-    margin-bottom: 20px;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+    border-radius: 12px;
+    cursor: pointer;
+    font-size: 15px;
 }
 
-button {
-    border: none;
-    border-radius: 10px;
-    padding: 12px 18px;
-    font-size: 16px;
-    cursor: pointer;
+.sport span {
+    display: block;
+    margin-top: 8px;
+}
+
+.sport.active {
+    border-color: #111827;
     background: #111827;
     color: white;
 }
 
-button:hover {
+.plan {
+    background: #f9fafb;
+    padding: 20px;
+    border-radius: 16px;
+}
+
+.training {
+    background: white;
+    border-radius: 12px;
+    padding: 15px;
+    margin: 12px 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border: 1px solid #e5e7eb;
+}
+
+.training p {
+    margin: 5px 0 0;
+    color: #6b7280;
+}
+
+.training > span {
+    font-weight: bold;
+}
+
+.start {
+    width: 100%;
+    padding: 15px;
+    margin-top: 15px;
+    border: none;
+    border-radius: 12px;
+    background: #111827;
+    color: white;
+    font-size: 17px;
+    cursor: pointer;
+}
+
+.start:hover {
     opacity: 0.85;
 }
 
-input,
-select {
-    width: 100%;
-    padding: 12px;
-    margin-top: 8px;
-    margin-bottom: 15px;
-    border: 1px solid #d1d5db;
-    border-radius: 10px;
-    font-size: 16px;
+#message {
+    text-align: center;
+    font-weight: bold;
+    margin-top: 15px;
 }
