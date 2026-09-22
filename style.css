@@ -2,119 +2,362 @@
     box-sizing: border-box;
 }
 
+:root {
+    --bg: #0b0f14;
+    --card: #151b23;
+    --card-light: #1c2430;
+    --text: #f5f7fa;
+    --muted: #8d98a7;
+    --accent: #7c5cff;
+    --accent-light: #9b83ff;
+    --border: #27303d;
+    --danger: #ef6b73;
+}
+
 body {
     margin: 0;
-    font-family: Arial, sans-serif;
-    background: #f3f4f6;
-    color: #111827;
+    background: var(--bg);
+    color: var(--text);
+    font-family: Arial, Helvetica, sans-serif;
+}
+
+button {
+    font-family: inherit;
 }
 
 .app {
-    max-width: 600px;
-    margin: auto;
+    width: 100%;
+    max-width: 650px;
     min-height: 100vh;
-    background: white;
+    margin: auto;
+    background: var(--bg);
+    padding-bottom: 90px;
 }
 
-header {
-    background: #111827;
-    color: white;
-    padding: 25px 20px;
-}
+/* HEADER */
 
-header h1 {
-    margin: 0;
-    font-size: 32px;
-}
-
-header p {
-    margin: 5px 0 0;
-    opacity: 0.7;
-}
-
-main {
-    padding: 20px;
-}
-
-.welcome h2 {
-    margin-bottom: 5px;
-}
-
-.welcome p {
-    color: #6b7280;
-}
-
-.sports {
-    display: flex;
-    gap: 10px;
-    margin: 25px 0;
-}
-
-.sport {
-    flex: 1;
-    padding: 15px 5px;
-    border: 2px solid #e5e7eb;
-    background: white;
-    border-radius: 12px;
-    cursor: pointer;
-    font-size: 15px;
-}
-
-.sport span {
-    display: block;
-    margin-top: 8px;
-}
-
-.sport.active {
-    border-color: #111827;
-    background: #111827;
-    color: white;
-}
-
-.plan {
-    background: #f9fafb;
-    padding: 20px;
-    border-radius: 16px;
-}
-
-.training {
-    background: white;
-    border-radius: 12px;
-    padding: 15px;
-    margin: 12px 0;
+.topbar {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    border: 1px solid #e5e7eb;
+    padding: 22px 20px;
+    border-bottom: 1px solid var(--border);
 }
 
-.training p {
-    margin: 5px 0 0;
-    color: #6b7280;
+.logo {
+    font-size: 25px;
+    font-weight: 900;
+    letter-spacing: 2px;
 }
 
-.training > span {
-    font-weight: bold;
+.subtitle {
+    margin-top: 4px;
+    color: var(--muted);
+    font-size: 13px;
 }
 
-.start {
-    width: 100%;
-    padding: 15px;
-    margin-top: 15px;
-    border: none;
+.settings-button {
+    width: 42px;
+    height: 42px;
+    border: 1px solid var(--border);
     border-radius: 12px;
-    background: #111827;
-    color: white;
-    font-size: 17px;
-    cursor: pointer;
+    background: var(--card);
+    color: var(--text);
+    font-size: 20px;
 }
 
-.start:hover {
-    opacity: 0.85;
+/* PAGES */
+
+.page {
+    display: none;
+    padding: 24px 20px;
 }
 
-#message {
-    text-align: center;
+.page.active {
+    display: block;
+}
+
+/* TEXT */
+
+.small-text {
+    color: var(--accent-light);
+    font-size: 12px;
     font-weight: bold;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+}
+
+h1 {
+    margin: 7px 0;
+    font-size: 30px;
+}
+
+h2 {
+    margin-top: 0;
+}
+
+.muted {
+    color: var(--muted);
+    line-height: 1.5;
+}
+
+/* TODAY */
+
+.today-card {
+    margin-top: 25px;
+    padding: 22px;
+    border-radius: 20px;
+    background: linear-gradient(
+        135deg,
+        #21194a,
+        #151b23
+    );
+    border: 1px solid #3a2f70;
+}
+
+.today-label {
+    color: var(--accent-light);
+    font-size: 12px;
+    font-weight: bold;
+    letter-spacing: 1px;
+}
+
+.today-card h2 {
+    margin: 10px 0 6px;
+    font-size: 24px;
+}
+
+.today-card p {
+    margin: 0;
+    color: var(--muted);
+}
+
+/* CALENDAR */
+
+.calendar-card {
+    margin-top: 20px;
+    padding: 18px;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    background: var(--card);
+}
+
+.calendar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.calendar-header h2 {
+    margin: 0;
+    font-size: 18px;
+}
+
+.calendar-header button {
+    width: 38px;
+    height: 38px;
+    border: 0;
+    border-radius: 10px;
+    background: var(--card-light);
+    color: var(--text);
+    font-size: 24px;
+}
+
+.weekdays,
+.calendar {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 6px;
+}
+
+.weekdays {
+    margin-top: 20px;
+    margin-bottom: 8px;
+}
+
+.weekdays span {
+    text-align: center;
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.day {
+    position: relative;
+    min-height: 43px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--text);
+    font-size: 14px;
+}
+
+.day:hover {
+    background: var(--card-light);
+}
+
+.day.today {
+    border: 1px solid var(--accent);
+}
+
+.day.selected {
+    background: var(--accent);
+}
+
+.day.has-training::after {
+    content: "";
+    position: absolute;
+    bottom: 5px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--accent-light);
+}
+
+.day.rest-day::after {
+    content: "";
+    position: absolute;
+    bottom: 5px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--danger);
+}
+
+/* DAY PAGE */
+
+.back-button {
+    border: 0;
+    background: none;
+    color: var(--accent-light);
+    font-size: 15px;
+    padding: 0;
+    margin-bottom: 25px;
+}
+
+.day-header {
+    margin-bottom: 25px;
+}
+
+.training-detail {
+    padding: 22px;
+    border-radius: 18px;
+    background: var(--card);
+    border: 1px solid var(--border);
+}
+
+.training-detail h2 {
+    margin-bottom: 8px;
+}
+
+.training-detail p {
+    color: var(--muted);
+    line-height: 1.5;
+}
+
+.rest-button {
+    width: 100%;
     margin-top: 15px;
+    padding: 15px;
+    border: 1px solid var(--border);
+    border-radius: 13px;
+    background: var(--card);
+    color: var(--text);
+    font-size: 15px;
+}
+
+/* WEEKLY PLAN */
+
+.plan-day {
+    margin-bottom: 12px;
+    padding: 17px;
+    border-radius: 15px;
+    background: var(--card);
+    border: 1px solid var(--border);
+}
+
+.plan-day-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.plan-day h3 {
+    margin: 0;
+}
+
+.plan-day p {
+    margin: 7px 0 0;
+    color: var(--muted);
+}
+
+.edit-button {
+    border: 0;
+    border-radius: 9px;
+    padding: 8px 11px;
+    background: var(--card-light);
+    color: var(--text);
+}
+
+/* SETTINGS */
+
+.settings-card {
+    padding: 20px;
+    border-radius: 18px;
+    background: var(--card);
+    border: 1px solid var(--border);
+}
+
+.primary-button {
+    width: 100%;
+    margin-top: 15px;
+    padding: 14px;
+    border: 0;
+    border-radius: 12px;
+    background: var(--accent);
+    color: white;
+    font-size: 15px;
+    font-weight: bold;
+}
+
+/* NAVIGATION */
+
+.bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100%;
+    max-width: 650px;
+    height: 75px;
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    background: rgba(15, 19, 25, 0.96);
+    border-top: 1px solid var(--border);
+}
+
+.nav-item {
+    border: 0;
+    background: transparent;
+    color: var(--muted);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+}
+
+.nav-item span {
+    font-size: 22px;
+}
+
+.nav-item small {
+    font-size: 11px;
+}
+
+.nav-item.active {
+    color: var(--accent-light);
 }
