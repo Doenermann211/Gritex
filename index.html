@@ -9,13 +9,72 @@
 
 <body>
 
-    <header>
-        <h1>Gritex</h1>
-    </header>
+    <div class="app">
+        <header>
+            <div>
+                <h1>Gritex</h1>
+                <p>Train smarter. Get stronger.</p>
+            </div>
+        </header>
 
-    <main id="app">
-        <p>Gritex wird geladen...</p>
-    </main>
+        <main>
+            <section class="welcome">
+                <h2>Dein Training</h2>
+                <p>Wähle deine Sportart und starte deinen Trainingsplan.</p>
+            </section>
+
+            <section class="sports">
+                <button class="sport active" onclick="selectSport('Laufen', this)">
+                    🏃
+                    <span>Laufen</span>
+                </button>
+
+                <button class="sport" onclick="selectSport('Radfahren', this)">
+                    🚴
+                    <span>Radfahren</span>
+                </button>
+
+                <button class="sport" onclick="selectSport('Schwimmen', this)">
+                    🏊
+                    <span>Schwimmen</span>
+                </button>
+            </section>
+
+            <section class="plan">
+                <h2 id="sportTitle">Laufplan</h2>
+
+                <div class="training">
+                    <div>
+                        <strong>Montag</strong>
+                        <p>Locker laufen</p>
+                    </div>
+                    <span>30 min</span>
+                </div>
+
+                <div class="training">
+                    <div>
+                        <strong>Mittwoch</strong>
+                        <p>Intervalle</p>
+                    </div>
+                    <span>40 min</span>
+                </div>
+
+                <div class="training">
+                    <div>
+                        <strong>Samstag</strong>
+                        <p>Langer Lauf</p>
+                    </div>
+                    <span>60 min</span>
+                </div>
+
+                <button class="start" onclick="startTraining()">
+                    Training starten
+                </button>
+
+                <p id="message"></p>
+            </section>
+        </main>
+    </div>
 
     <script src="script.js"></script>
 </body>
