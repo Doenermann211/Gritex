@@ -1,4 +1,4 @@
-/* ===== GRITEX – Grunddesign ===== */
+/* ===== GRITEX – Design ===== */
 :root {
   --bg: #07090D;
   --panel: #11151C;
@@ -7,11 +7,12 @@
   --text: #F5F7FB;
   --muted: #858D9C;
   --green: #45E0A3;
+  --red: #FF6B7A;
   --line: rgba(255, 255, 255, 0.07);
 }
 
 * { box-sizing: border-box; }
-
+[hidden] { display: none !important; }
 html, body { margin: 0; padding: 0; }
 
 body {
@@ -69,7 +70,6 @@ svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width:
 }
 .nav-btn:active, .icon-btn:active { transform: scale(0.94); }
 
-/* Wochentage und Tage nutzen exakt dasselbe 7-Spalten-Grid */
 .grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
 .weekdays span { text-align: center; font-size: 11px; font-weight: 700; letter-spacing: 1px; color: var(--muted); padding: 6px 0; }
 
@@ -78,7 +78,6 @@ svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width:
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
   font-size: 16px; font-weight: 600;
   border: 1.5px solid transparent;
-  transition: background 0.15s ease;
 }
 .day:active { transform: scale(0.94); }
 .day.other { opacity: 0.28; }
@@ -97,7 +96,7 @@ svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width:
 .day-title { margin: 4px 0 14px; font-size: 22px; font-weight: 800; }
 
 .card {
-  padding: 20px; border-radius: 22px;
+  padding: 20px; border-radius: 22px; margin-bottom: 10px;
   background: var(--panel); border: 1px solid var(--line);
   animation: fade 0.25s ease;
 }
@@ -105,14 +104,45 @@ svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width:
 .card.empty strong { display: block; color: var(--text); font-size: 16px; margin-bottom: 6px; }
 .card.empty span { font-size: 14px; line-height: 1.5; }
 
-/* ----- Wochenplan ----- */
-.plan-row {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 16px 18px; margin-bottom: 10px; border-radius: 18px;
+/* ----- Trainingskarten ----- */
+.card-item {
+  display: flex; align-items: center; gap: 14px;
+  padding: 16px; margin-bottom: 10px; border-radius: 20px;
   background: var(--panel); border: 1px solid var(--line);
+  animation: fade 0.25s ease;
 }
-.plan-row strong { font-size: 13px; letter-spacing: 2px; }
-.plan-row span { font-size: 14px; color: var(--muted); }
+.card-icon {
+  width: 48px; height: 48px; flex: none; border-radius: 14px; font-size: 24px;
+  background: rgba(128, 103, 255, 0.14);
+  display: flex; align-items: center; justify-content: center;
+}
+.card-body { flex: 1; min-width: 0; }
+.card-body strong { display: block; font-size: 16px; overflow-wrap: anywhere; }
+.card-body p { margin: 3px 0 0; font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
+.card-meta { margin-top: 8px; font-size: 11px; letter-spacing: 1.5px; font-weight: 700; color: var(--accent); }
+.edit-btn {
+  width: 44px; height: 44px; flex: none; border-radius: 14px; font-size: 18px;
+  background: rgba(255, 255, 255, 0.05); color: var(--muted);
+}
+.edit-btn:active { transform: scale(0.94); }
+
+.add-btn {
+  width: 100%; min-height: 52px; border-radius: 16px; margin-top: 4px;
+  border: 1.5px dashed var(--accent); color: var(--accent);
+  background: rgba(128, 103, 255, 0.08); font-weight: 700; font-size: 15px;
+}
+.add-btn:active { transform: scale(0.98); }
+
+/* ----- Wochenplan ----- */
+.plan-day { margin-bottom: 18px; }
+.plan-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.plan-head strong { font-size: 13px; letter-spacing: 2px; }
+.mini-add {
+  width: 44px; height: 44px; border-radius: 14px; font-size: 24px; line-height: 1;
+  background: rgba(128, 103, 255, 0.14); color: var(--accent);
+}
+.mini-add:active { transform: scale(0.94); }
+.plan-empty { display: block; padding: 4px 2px 0; font-size: 14px; color: var(--muted); }
 
 /* ----- Einstellungen ----- */
 .settings-list { padding: 4px 18px; }
@@ -137,7 +167,40 @@ svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width:
 .tab:active { transform: scale(0.95); }
 .tab.active { color: var(--accent); background: rgba(128, 103, 255, 0.12); }
 
-/* ----- Kleine Bildschirme ----- */
+/* ----- Modal (Bottom Sheet) ----- */
+.overlay {
+  position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 10;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex; align-items: flex-end; justify-content: center;
+}
+.sheet {
+  width: 100%; max-width: 680px; max-height: 92vh; overflow-y: auto;
+  padding: 22px 18px calc(env(safe-area-inset-bottom, 0px) + 20px);
+  background: var(--panel); border: 1px solid var(--line); border-radius: 26px 26px 0 0;
+  animation: slide 0.25s ease;
+}
+@keyframes slide { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+.sheet h3 { margin: 0; font-size: 22px; font-weight: 800; }
+.sheet-sub { margin: 4px 0 8px; font-size: 14px; color: var(--muted); }
+.sheet label { display: block; margin: 14px 0 6px; font-size: 11px; letter-spacing: 2px; font-weight: 700; color: var(--muted); text-transform: uppercase; }
+.sheet input, .sheet select, .sheet textarea {
+  width: 100%; padding: 13px 14px; border-radius: 14px;
+  background: var(--bg); color: var(--text); border: 1px solid var(--line);
+  font: inherit; font-size: 16px; /* 16px verhindert das Zoomen in iOS Safari */
+  -webkit-appearance: none; appearance: none;
+}
+.sheet textarea { resize: none; }
+.sheet input:focus, .sheet select:focus, .sheet textarea:focus { outline: none; border-color: var(--accent); }
+.sheet-actions { display: flex; gap: 10px; margin-top: 20px; }
+.btn {
+  flex: 1; min-height: 50px; border-radius: 15px; font-weight: 700; font-size: 15px;
+  background: rgba(255, 255, 255, 0.07);
+}
+.btn:active { transform: scale(0.97); }
+.btn.primary { background: var(--accent); color: #fff; }
+.btn.danger { color: var(--red); background: rgba(255, 107, 122, 0.12); }
+#modal-delete { width: 100%; margin-top: 10px; }
+
 @media (max-width: 360px) {
   .day { height: 44px; font-size: 14px; }
   .page-title { font-size: 24px; }
