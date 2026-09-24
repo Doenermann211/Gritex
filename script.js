@@ -1,148 +1,204 @@
-/* ===== GRITEX – Grunddesign ===== */
-:root {
-  --bg: #07090D;
-  --panel: #11151C;
-  --panel-2: #181D27;
-  --accent: #8067FF;
-  --text: #F5F7FB;
-  --muted: #858D9C;
-  --green: #45E0A3;
-  --line: rgba(255, 255, 255, 0.07);
+"use strict";
+
+/* ===== GRITEX – Phase 1 + 2 =====
+   Kalender, Monatswechsel, Datum auswählen, Navigation. */
+
+const MONTHS = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"];
+const WEEKDAYS = ["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"]; // Index = Date.getDay()
+const PLAN_DAYS = ["MONTAG", "DIENSTAG", "MITTWOCH", "DONNERSTAG", "FREITAG", "SAMSTAG", "SONNTAG"];
+
+// Zentraler Zustand der App
+const state = {
+  viewYear: 0,
+  viewMonth: 0,
+  selectedKey: "",
+  view: "calendar"
+};
+
+/* ----- Hilfsfunktionen ----- */
+function $(id) { return document.getElementById(id); }
+
+function pad(n) { return n < 10 ? "0" + n : String(n); }
+
+// Datum -> "2026-09-24" (ohne Zeitzonen-Probleme)
+function toKey(date) {
+  return date.getFullYear() + "-" + pad(date.getMonth() + 1) + "-" + pad(date.getDate());
 }
 
-* { box-sizing: border-box; }
-
-html, body { margin: 0; padding: 0; }
-
-body {
-  background: var(--bg);
-  color: var(--text);
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  -webkit-tap-highlight-color: transparent;
-  -webkit-text-size-adjust: 100%;
-  overflow-x: hidden;
+// "2026-09-24" -> Date (mittags, damit Sommerzeit nie stört)
+function parseKey(key) {
+  const p = String(key).split("-");
+  return new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]), 12, 0, 0);
 }
 
-button { font: inherit; color: inherit; border: 0; background: none; cursor: pointer; padding: 0; }
-
-.app {
-  max-width: 680px;
-  margin: 0 auto;
-  min-height: 100vh;
-  padding: calc(env(safe-area-inset-top, 0px) + 16px) 16px calc(env(safe-area-inset-bottom, 0px) + 100px);
-}
-
-/* ----- Header ----- */
-.header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 22px; }
-.logo h1 { margin: 0; font-size: 26px; font-weight: 900; letter-spacing: 5px; }
-.logo p { margin: 3px 0 0; font-size: 10px; letter-spacing: 3px; color: var(--accent); font-weight: 600; }
-
-.icon-btn {
-  width: 44px; height: 44px; border-radius: 14px;
-  background: var(--panel); border: 1px solid var(--line);
-  display: flex; align-items: center; justify-content: center;
-}
-svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-
-/* ----- Ansichten ----- */
-.view { display: none; }
-.view.active { display: block; animation: fade 0.25s ease; }
-@keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
-
-.eyebrow { margin: 0; font-size: 11px; letter-spacing: 2.5px; color: var(--accent); font-weight: 700; }
-.page-title { margin: 4px 0 16px; font-size: 28px; font-weight: 800; }
-.hint { color: var(--muted); font-size: 14px; line-height: 1.5; margin: -6px 0 16px; }
-
-.panel {
-  background: linear-gradient(180deg, var(--panel-2), var(--panel));
-  border: 1px solid var(--line);
-  border-radius: 24px;
+/* ----- Trainingsindikatoren -----
+   Kommt in Phase 3/4: gibt dann z. B. ["planned"], ["done"] oder ["rest"] zurück. */
+function getDayMarkers(key) {
+  return [];
 }
 
 /* ----- Kalender ----- */
-.calendar { padding: 14px 10px 12px; }
-.month-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
-.month-title { font-size: 18px; font-weight: 700; }
-.nav-btn {
-  width: 44px; height: 44px; border-radius: 14px; font-size: 26px; line-height: 1;
-  background: rgba(255, 255, 255, 0.05);
+function renderCalendar() {
+  const grid = $("calendar-grid");
+  const title = $("month-title");
+  if (!grid || !title) return;
+
+  const year = state.viewYear;
+  const month = state.viewMonth;
+  title.textContent = MONTHS[month] + " " + year;
+
+  // Woche beginnt am Montag: getDay() 0 (So) -> 6, 1 (Mo) -> 0, ...
+  const offset = (new Date(year, month, 1).getDay() + 6) % 7;
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const totalCells = Math.ceil((offset + daysInMonth) / 7) * 7;
+  const todayKey = toKey(new Date());
+
+  const frag = document.createDocumentFragment();
+  for (let i = 0; i < totalCells; i++) {
+    // Tag 1 - offset ergibt automatisch Tage des Vor-/Folgemonats
+    const d = new Date(year, month, 1 - offset + i, 12, 0, 0);
+    const key = toKey(d);
+
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "day";
+    btn.dataset.date = key;
+    if (d.getMonth() !== month) btn.classList.add("other");
+    if (key === todayKey) btn.classList.add("today");
+    if (key === state.selectedKey) btn.classList.add("selected");
+    btn.setAttribute("aria-label", WEEKDAYS[d.getDay()] + ", " + d.getDate() + ". " + MONTHS[d.getMonth()]);
+
+    const num = document.createElement("span");
+    num.textContent = d.getDate();
+    btn.appendChild(num);
+
+    const dots = document.createElement("div");
+    dots.className = "dots";
+    getDayMarkers(key).forEach(function (type) {
+      const dot = document.createElement("i");
+      dot.className = "dot dot-" + type;
+      dots.appendChild(dot);
+    });
+    btn.appendChild(dots);
+
+    frag.appendChild(btn);
+  }
+  grid.innerHTML = "";
+  grid.appendChild(frag);
 }
-.nav-btn:active, .icon-btn:active { transform: scale(0.94); }
-
-/* Wochentage und Tage nutzen exakt dasselbe 7-Spalten-Grid */
-.grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
-.weekdays span { text-align: center; font-size: 11px; font-weight: 700; letter-spacing: 1px; color: var(--muted); padding: 6px 0; }
-
-.day {
-  min-width: 0; height: 50px; border-radius: 14px;
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
-  font-size: 16px; font-weight: 600;
-  border: 1.5px solid transparent;
-  transition: background 0.15s ease;
-}
-.day:active { transform: scale(0.94); }
-.day.other { opacity: 0.28; }
-.day.today { border-color: var(--accent); color: var(--accent); }
-.day.selected { background: var(--accent); color: #fff; border-color: var(--accent); }
-
-.dots { height: 5px; display: flex; gap: 3px; }
-.dot { width: 5px; height: 5px; border-radius: 50%; }
-.dot-planned { background: var(--accent); }
-.dot-done { background: var(--green); }
-.dot-rest { background: var(--muted); }
-.day.selected .dot-planned { background: #fff; }
 
 /* ----- Tagesübersicht ----- */
-.day-label { margin-top: 26px; }
-.day-title { margin: 4px 0 14px; font-size: 22px; font-weight: 800; }
+function renderSelectedDay() {
+  const label = $("day-label");
+  const title = $("day-title");
+  const content = $("day-content");
+  if (!label || !title || !content) return;
 
-.card {
-  padding: 20px; border-radius: 22px;
-  background: var(--panel); border: 1px solid var(--line);
-  animation: fade 0.25s ease;
-}
-.card.empty { text-align: center; color: var(--muted); }
-.card.empty strong { display: block; color: var(--text); font-size: 16px; margin-bottom: 6px; }
-.card.empty span { font-size: 14px; line-height: 1.5; }
+  const sel = parseKey(state.selectedKey);
+  const today = parseKey(toKey(new Date()));
+  const diff = Math.round((sel - today) / 86400000);
 
-/* ----- Wochenplan ----- */
-.plan-row {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 16px 18px; margin-bottom: 10px; border-radius: 18px;
-  background: var(--panel); border: 1px solid var(--line);
-}
-.plan-row strong { font-size: 13px; letter-spacing: 2px; }
-.plan-row span { font-size: 14px; color: var(--muted); }
+  label.textContent = diff === 0 ? "HEUTE" : diff === 1 ? "MORGEN" : diff === -1 ? "GESTERN" : "AUSGEWÄHLT";
+  title.textContent = WEEKDAYS[sel.getDay()] + ", " + sel.getDate() + ". " + MONTHS[sel.getMonth()];
 
-/* ----- Einstellungen ----- */
-.settings-list { padding: 4px 18px; }
-.row { display: flex; align-items: center; justify-content: space-between; padding: 16px 0; border-bottom: 1px solid var(--line); font-size: 15px; }
-.row:last-child { border-bottom: 0; }
-.row em { font-style: normal; font-size: 13px; color: var(--muted); }
-
-/* ----- Bottom Navigation ----- */
-.tabbar {
-  position: fixed; left: 0; right: 0; bottom: 0;
-  max-width: 680px; margin: 0 auto;
-  display: flex; gap: 6px;
-  padding: 8px 12px calc(env(safe-area-inset-bottom, 0px) + 8px);
-  background: rgba(13, 16, 22, 0.97);
-  border-top: 1px solid var(--line);
-}
-.tab {
-  flex: 1; min-height: 56px; border-radius: 16px;
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
-  color: var(--muted); font-size: 11px; font-weight: 600;
-}
-.tab:active { transform: scale(0.95); }
-.tab.active { color: var(--accent); background: rgba(128, 103, 255, 0.12); }
-
-/* ----- Kleine Bildschirme ----- */
-@media (max-width: 360px) {
-  .day { height: 44px; font-size: 14px; }
-  .page-title { font-size: 24px; }
+  // Noch keine Trainingsdaten: sinnvoller Leerzustand
+  content.innerHTML = "";
+  const card = document.createElement("div");
+  card.className = "card empty";
+  const strong = document.createElement("strong");
+  strong.textContent = "Keine Einheit geplant.";
+  const span = document.createElement("span");
+  span.textContent = "Hier erscheint dein Training für diesen Tag.";
+  card.appendChild(strong);
+  card.appendChild(span);
+  content.appendChild(card);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  * { animation: none !important; transition: none !important; }
+/* ----- Wochenplan (Grundstruktur) ----- */
+function renderWeeklyPlan() {
+  const list = $("plan-list");
+  if (!list) return;
+  list.innerHTML = "";
+  PLAN_DAYS.forEach(function (name) {
+    const row = document.createElement("div");
+    row.className = "plan-row";
+    const strong = document.createElement("strong");
+    strong.textContent = name;
+    const span = document.createElement("span");
+    span.textContent = "Noch nichts geplant";
+    row.appendChild(strong);
+    row.appendChild(span);
+    list.appendChild(row);
+  });
 }
+
+/* ----- Aktionen ----- */
+function changeMonth(delta) {
+  let m = state.viewMonth + delta;
+  let y = state.viewYear;
+  if (m < 0) { m = 11; y -= 1; }
+  if (m > 11) { m = 0; y += 1; }
+  state.viewMonth = m;
+  state.viewYear = y;
+  renderCalendar();
+}
+
+function selectDate(key) {
+  const d = parseKey(key);
+  if (isNaN(d.getTime())) return;
+  state.selectedKey = key;
+  state.viewYear = d.getFullYear();   // springt bei Tagen des Nachbarmonats dorthin
+  state.viewMonth = d.getMonth();
+  renderCalendar();
+  renderSelectedDay();
+}
+
+function showView(name) {
+  const views = ["calendar", "plan", "settings"];
+  if (views.indexOf(name) === -1) return;
+  state.view = name;
+  views.forEach(function (v) {
+    const el = $("view-" + v);
+    if (el) el.classList.toggle("active", v === name);
+  });
+  document.querySelectorAll(".tab").forEach(function (tab) {
+    tab.classList.toggle("active", tab.dataset.view === name);
+  });
+  window.scrollTo(0, 0);
+}
+
+/* ----- Event-Listener (einmalig beim Start) ----- */
+function setupEventListeners() {
+  $("prev-month").addEventListener("click", function () { changeMonth(-1); });
+  $("next-month").addEventListener("click", function () { changeMonth(1); });
+
+  // Ein Listener für alle Kalendertage
+  $("calendar-grid").addEventListener("click", function (e) {
+    const btn = e.target.closest(".day");
+    if (btn && btn.dataset.date) selectDate(btn.dataset.date);
+  });
+
+  // Alle Elemente mit data-view (Tabbar + Header-Button)
+  document.querySelectorAll("[data-view]").forEach(function (el) {
+    el.addEventListener("click", function () { showView(el.dataset.view); });
+  });
+}
+
+/* ----- Start ----- */
+function init() {
+  try {
+    const now = new Date();
+    state.viewYear = now.getFullYear();
+    state.viewMonth = now.getMonth();
+    state.selectedKey = toKey(now);
+
+    renderCalendar();
+    renderSelectedDay();
+    renderWeeklyPlan();
+    setupEventListeners();
+  } catch (error) {
+    console.error("GRITEX Startfehler:", error);
+  }
+}
+
+document.addEventListener("DOMContentLoaded", init);
