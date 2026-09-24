@@ -1,8 +1,8 @@
 "use strict";
 
-/* ===== GRITEX – Phase 3 =====
-   Kalender + Trainingseinheiten (hinzufügen, bearbeiten, löschen) + Wochenplan.
-   Daten liegen noch im Arbeitsspeicher (LocalStorage folgt in Phase 4). */
+/* ===== GRITEX – Phase 4 =====
+   Wochenplan wiederholt sich im Kalender, einzelne Tage können überschrieben
+   werden (Ausnahmen), Ruhetage, Speicherung im LocalStorage. */
 
 const MONTHS = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"];
 const WEEKDAYS = ["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"]; // Index = Date.getDay()
@@ -18,20 +18,29 @@ const TYPES = {
   other:     { icon: "🎯", label: "Sonstiges" }
 };
 
+const KEY_PLAN = "gritex_weekly_plan";
+const KEY_OVERRIDES = "gritex_overrides";
+
+/* Datenmodell:
+   weeklyPlan: 7 Listen (0 = Montag ... 6 = Sonntag) mit Standard-Einheiten.
+   overrides:  { "2026-10-07": { rest: false, items: [...] } }
+               Ist für ein Datum ein Eintrag vorhanden, ersetzt er den Wochenplan
+               nur an diesem Tag. Ohne Eintrag gilt der Wochenplan. */
 const state = {
   viewYear: 0,
   viewMonth: 0,
   selectedKey: "",
   view: "calendar",
-  sessions: [],                              // Einheiten mit Datum
-  weeklyPlan: [[], [], [], [], [], [], []],  // Standardwoche: 0 = Montag ... 6 = Sonntag
-  editing: null                              // aktuell offenes Modal: { kind, date/day, id }
+  weeklyPlan: emptyPlan(),
+  overrides: {},
+  editing: null   // offenes Modal: { kind: "plan" | "session", day / date, id }
 };
 
 /* ----- Hilfsfunktionen ----- */
 function $(id) { return document.getElementById(id); }
 function pad(n) { return n < 10 ? "0" + n : String(n); }
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+function emptyPlan() { return [[], [], [], [], [], [], []]; }
 
 function toKey(date) {
   return date.getFullYear() + "-" + pad(date.getMonth() + 1) + "-" + pad(date.getDate());
@@ -46,7 +55,11 @@ function formatDate(d) {
   return WEEKDAYS[d.getDay()] + ", " + d.getDate() + ". " + MONTHS[d.getMonth()];
 }
 
-// Element mit Klasse und Text erzeugen
+// 0 = Montag ... 6 = Sonntag
+function weekdayIndex(key) {
+  return (parseKey(key).getDay() + 6) % 7;
+}
+
 function h(tag, cls, text) {
   const el = document.createElement(tag);
   if (cls) el.className = cls;
@@ -54,34 +67,118 @@ function h(tag, cls, text) {
   return el;
 }
 
-// Fehlerhafte Einheiten werden ignoriert, statt die App zu stören
+function makeBtn(cls, text, onClick) {
+  const b = h("button", cls, text);
+  b.type = "button";
+  b.addEventListener("click", onClick);
+  return b;
+}
+
 function isValid(item) {
   return !!item && typeof item.id === "string" && typeof item.title === "string";
 }
 
 function typeOf(type) { return TYPES[type] || TYPES.other; }
 
-function getSessionsForDate(key) {
-  return state.sessions.filter(function (s) { return isValid(s) && s.date === key; });
-}
-
-// Liste, in der ein Eintrag liegt (Kalender-Einheiten oder Wochenplan-Tag)
-function getList(ctx) {
-  return ctx.kind === "plan" ? state.weeklyPlan[ctx.day] : state.sessions;
-}
-
-function findItem(ctx) {
-  if (!ctx.id) return null;
-  const list = getList(ctx) || [];
-  for (let i = 0; i < list.length; i++) {
-    if (list[i] && list[i].id === ctx.id) return list[i];
+/* ----- LocalStorage (sicher) ----- */
+function safeGet(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) {
+    return null;   // kaputtes JSON oder kein Zugriff -> Standardwerte
   }
-  return null;
 }
 
-/* ----- Kalenderpunkte ----- */
+function safeSet(key, value) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch (e) {
+    console.warn("GRITEX: Speichern nicht möglich", e);
+  }
+}
+
+// Eine gespeicherte Einheit prüfen und bereinigen; null = ignorieren
+function cleanItem(x) {
+  if (!x || typeof x !== "object") return null;
+  const type = TYPES[x.type] ? x.type : "other";
+  let duration = Math.round(Number(x.duration));
+  if (isNaN(duration) || duration < 0) duration = 0;
+  if (duration > 999) duration = 999;
+  const title = String(x.title || "").trim().slice(0, 60) || TYPES[type].label;
+  return {
+    id: x.id ? String(x.id) : uid(),
+    type: type,
+    title: title,
+    description: String(x.description || "").slice(0, 200),
+    duration: duration,
+    completed: x.completed === true
+  };
+}
+
+function cleanList(list) {
+  if (!Array.isArray(list)) return [];
+  return list.map(cleanItem).filter(function (i) { return i !== null; });
+}
+
+function loadData() {
+  // Wochenplan
+  const plan = safeGet(KEY_PLAN);
+  const cleanPlan = emptyPlan();
+  if (Array.isArray(plan)) {
+    for (let i = 0; i < 7; i++) cleanPlan[i] = cleanList(plan[i]);
+  }
+  state.weeklyPlan = cleanPlan;
+
+  // Ausnahmen pro Datum
+  const ov = safeGet(KEY_OVERRIDES);
+  const cleanOv = {};
+  if (ov && typeof ov === "object" && !Array.isArray(ov)) {
+    Object.keys(ov).forEach(function (key) {
+      const v = ov[key];
+      if (/^\d{4}-\d{2}-\d{2}$/.test(key) && v && typeof v === "object") {
+        cleanOv[key] = { rest: v.rest === true, items: cleanList(v.items) };
+      }
+    });
+  }
+  state.overrides = cleanOv;
+}
+
+function saveData() {
+  safeSet(KEY_PLAN, state.weeklyPlan);
+  safeSet(KEY_OVERRIDES, state.overrides);
+}
+
+/* ----- Tageslogik: Wochenplan + Ausnahme ----- */
+function getPlanItems(key) {
+  return (state.weeklyPlan[weekdayIndex(key)] || []).filter(isValid);
+}
+
+// Was gilt an diesem Datum? { rest, items, custom }
+function getDay(key) {
+  const ov = state.overrides[key];
+  if (ov && typeof ov === "object") {
+    return { rest: ov.rest === true, items: (ov.items || []).filter(isValid), custom: true };
+  }
+  return { rest: false, items: getPlanItems(key), custom: false };
+}
+
+// Legt bei Bedarf eine Ausnahme an (Kopie des Wochenplans für diesen Tag)
+function ensureOverride(key) {
+  let ov = state.overrides[key];
+  if (!ov) {
+    ov = { rest: false, items: getPlanItems(key).map(function (i) { return Object.assign({}, i); }) };
+    state.overrides[key] = ov;
+  }
+  return ov;
+}
+
 function getDayMarkers(key) {
-  return getSessionsForDate(key).length > 0 ? ["planned"] : [];
+  const day = getDay(key);
+  if (day.rest) return ["rest"];
+  if (day.items.length === 0) return [];
+  const allDone = day.items.every(function (i) { return i.completed; });
+  return [allDone ? "done" : "planned"];
 }
 
 /* ----- Kalender ----- */
@@ -124,7 +221,7 @@ function renderCalendar() {
   grid.appendChild(frag);
 }
 
-/* ----- Trainingskarte (für Tagesansicht und Wochenplan) ----- */
+/* ----- Trainingskarte ----- */
 function buildCard(item, onEdit) {
   const t = typeOf(item.type);
   const card = h("div", "card-item");
@@ -136,19 +233,10 @@ function buildCard(item, onEdit) {
   if (item.duration > 0) body.appendChild(h("div", "card-meta", item.duration + " MIN"));
   card.appendChild(body);
 
-  const edit = h("button", "edit-btn", "✎");
-  edit.type = "button";
+  const edit = makeBtn("edit-btn", "✎", onEdit);
   edit.setAttribute("aria-label", item.title + " bearbeiten");
-  edit.addEventListener("click", onEdit);
   card.appendChild(edit);
   return card;
-}
-
-function buildAddButton(onClick) {
-  const btn = h("button", "add-btn", "+ Training hinzufügen");
-  btn.type = "button";
-  btn.addEventListener("click", onClick);
-  return btn;
 }
 
 /* ----- Tagesübersicht ----- */
@@ -166,23 +254,43 @@ function renderSelectedDay() {
 
   content.innerHTML = "";
   const key = state.selectedKey;
-  const items = getSessionsForDate(key);
+  const day = getDay(key);
 
-  if (items.length === 0) {
+  if (day.rest) {
+    const card = h("div", "card-item");
+    card.appendChild(h("div", "card-icon rest", "🌙"));
+    const body = h("div", "card-body");
+    body.appendChild(h("strong", "", "Ruhetag"));
+    body.appendChild(h("p", "", "Erholung gehört zum Training."));
+    card.appendChild(body);
+    content.appendChild(card);
+  } else if (day.items.length === 0) {
     const card = h("div", "card empty");
     card.appendChild(h("strong", "", "Keine Einheit geplant."));
     card.appendChild(h("span", "", "Für diesen Tag steht noch nichts auf dem Plan."));
     content.appendChild(card);
   } else {
-    items.forEach(function (item) {
+    day.items.forEach(function (item) {
       content.appendChild(buildCard(item, function () {
         openModal({ kind: "session", date: key, id: item.id });
       }));
     });
   }
-  content.appendChild(buildAddButton(function () {
+
+  content.appendChild(makeBtn("add-btn", "+ Training hinzufügen", function () {
     openModal({ kind: "session", date: key, id: null });
   }));
+
+  const actions = h("div", "actions");
+  if (day.rest) {
+    actions.appendChild(makeBtn("ghost-btn", "Ruhetag aufheben", function () { clearOverride(key); }));
+  } else {
+    actions.appendChild(makeBtn("ghost-btn", "🌙 Ruhetag", function () { setRestDay(key); }));
+    if (day.custom) {
+      actions.appendChild(makeBtn("ghost-btn", "Auf Wochenplan zurücksetzen", function () { clearOverride(key); }));
+    }
+  }
+  content.appendChild(actions);
 }
 
 /* ----- Wochenplan ----- */
@@ -196,12 +304,10 @@ function renderWeeklyPlan() {
     const head = h("div", "plan-head");
     head.appendChild(h("strong", "", name));
 
-    const add = h("button", "mini-add", "+");
-    add.type = "button";
-    add.setAttribute("aria-label", "Training für " + name.charAt(0) + name.slice(1).toLowerCase() + " hinzufügen");
-    add.addEventListener("click", function () {
+    const add = makeBtn("mini-add", "+", function () {
       openModal({ kind: "plan", day: dayIndex, id: null });
     });
+    add.setAttribute("aria-label", "Training für " + name.charAt(0) + name.slice(1).toLowerCase() + " hinzufügen");
     head.appendChild(add);
     wrap.appendChild(head);
 
@@ -225,13 +331,37 @@ function renderAll() {
   renderWeeklyPlan();
 }
 
+/* ----- Ruhetag / Ausnahme entfernen ----- */
+function setRestDay(key) {
+  state.overrides[key] = { rest: true, items: [] };
+  saveData();
+  renderAll();
+}
+
+function clearOverride(key) {
+  delete state.overrides[key];
+  saveData();
+  renderAll();
+}
+
 /* ----- Modal: hinzufügen / bearbeiten ----- */
+function findItem(ctx) {
+  if (!ctx.id) return null;
+  const list = ctx.kind === "plan" ? (state.weeklyPlan[ctx.day] || []) : getDay(ctx.date).items;
+  for (let i = 0; i < list.length; i++) {
+    if (list[i] && list[i].id === ctx.id) return list[i];
+  }
+  return null;
+}
+
 function openModal(ctx) {
   const item = findItem(ctx);
   state.editing = ctx;
 
   $("modal-title").textContent = item ? "Training bearbeiten" : "Training hinzufügen";
-  $("modal-sub").textContent = ctx.kind === "plan" ? "Jede Woche: " + PLAN_DAYS[ctx.day] : formatDate(parseKey(ctx.date));
+  $("modal-sub").textContent = ctx.kind === "plan"
+    ? "Jede Woche: " + PLAN_DAYS[ctx.day]
+    : formatDate(parseKey(ctx.date)) + " (nur dieser Tag)";
 
   $("f-type").value = item ? item.type : "running";
   $("f-title").value = item ? item.title : "";
@@ -247,6 +377,14 @@ function closeModal() {
   state.editing = null;
 }
 
+// Liste, in die gespeichert wird: Wochenplan-Tag oder Ausnahme dieses Datums
+function getWritableList(ctx) {
+  if (ctx.kind === "plan") return state.weeklyPlan[ctx.day];
+  const ov = ensureOverride(ctx.date);
+  ov.rest = false;   // Training an einem Ruhetag hebt den Ruhetag auf
+  return ov.items;
+}
+
 function saveModal() {
   const ctx = state.editing;
   if (!ctx) return;
@@ -258,17 +396,21 @@ function saveModal() {
   if (isNaN(duration) || duration < 0) duration = 0;
   if (duration > 999) duration = 999;
 
-  const existing = findItem(ctx);
+  const list = getWritableList(ctx);
+  let existing = null;
+  for (let i = 0; i < list.length; i++) {
+    if (ctx.id && list[i] && list[i].id === ctx.id) { existing = list[i]; break; }
+  }
+
   if (existing) {
     existing.type = type;
     existing.title = title;
     existing.description = description;
     existing.duration = duration;
   } else {
-    const item = { id: uid(), type: type, title: title, description: description, duration: duration, completed: false };
-    if (ctx.kind === "session") item.date = ctx.date;
-    getList(ctx).push(item);
+    list.push({ id: uid(), type: type, title: title, description: description, duration: duration, completed: false });
   }
+  saveData();
   closeModal();
   renderAll();
 }
@@ -281,10 +423,11 @@ function askDelete() {
 function confirmDelete() {
   const ctx = state.editing;
   if (ctx && ctx.id) {
-    const list = getList(ctx);
+    const list = getWritableList(ctx);
     for (let i = 0; i < list.length; i++) {
       if (list[i] && list[i].id === ctx.id) { list.splice(i, 1); break; }
     }
+    saveData();
   }
   closeModal();
   renderAll();
@@ -339,19 +482,16 @@ function setupEventListeners() {
     el.addEventListener("click", function () { showView(el.dataset.view); });
   });
 
-  // Modal
   $("modal-cancel").addEventListener("click", closeModal);
   $("modal-save").addEventListener("click", saveModal);
   $("modal-delete").addEventListener("click", askDelete);
   $("confirm-cancel").addEventListener("click", function () { $("confirm").hidden = true; });
   $("confirm-ok").addEventListener("click", confirmDelete);
 
-  // Tipp auf den dunklen Hintergrund schließt das Fenster
   $("modal").addEventListener("click", function (e) { if (e.target === $("modal")) closeModal(); });
   $("confirm").addEventListener("click", function (e) { if (e.target === $("confirm")) $("confirm").hidden = true; });
 }
 
-// Auswahlliste der Trainingsarten befüllen
 function fillTypeSelect() {
   const select = $("f-type");
   select.innerHTML = "";
@@ -370,6 +510,7 @@ function init() {
     state.viewMonth = now.getMonth();
     state.selectedKey = toKey(now);
 
+    loadData();          // fällt bei Problemen auf leere Standardwerte zurück
     fillTypeSelect();
     renderAll();
     setupEventListeners();
