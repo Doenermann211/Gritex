@@ -1,717 +1,148 @@
-* {
-    box-sizing: border-box;
-}
-
+/* ===== GRITEX – Grunddesign ===== */
 :root {
-    --bg: #07090d;
-    --panel: #11151c;
-    --panel-2: #171c25;
-    --text: #f5f7fb;
-    --muted: #858d9c;
-    --accent: #8067ff;
-    --accent-soft: rgba(128, 103, 255, 0.16);
-    --green: #45e0a3;
-    --border: rgba(255, 255, 255, 0.07);
+  --bg: #07090D;
+  --panel: #11151C;
+  --panel-2: #181D27;
+  --accent: #8067FF;
+  --text: #F5F7FB;
+  --muted: #858D9C;
+  --green: #45E0A3;
+  --line: rgba(255, 255, 255, 0.07);
 }
 
-html,
-body {
-    margin: 0;
-    min-height: 100%;
-}
+* { box-sizing: border-box; }
+
+html, body { margin: 0; padding: 0; }
 
 body {
-    background:
-        radial-gradient(
-            circle at 50% -10%,
-            rgba(128, 103, 255, 0.20),
-            transparent 38%
-        ),
-        var(--bg);
-
-    color: var(--text);
-    font-family:
-        -apple-system,
-        BlinkMacSystemFont,
-        "Segoe UI",
-        sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+  overflow-x: hidden;
 }
 
-button {
-    font: inherit;
-    border: 0;
-    cursor: pointer;
-}
+button { font: inherit; color: inherit; border: 0; background: none; cursor: pointer; padding: 0; }
 
 .app {
-    width: 100%;
-    max-width: 680px;
-    margin: 0 auto;
-    padding-bottom: 100px;
+  max-width: 680px;
+  margin: 0 auto;
+  min-height: 100vh;
+  padding: calc(env(safe-area-inset-top, 0px) + 16px) 16px calc(env(safe-area-inset-bottom, 0px) + 100px);
 }
 
+/* ----- Header ----- */
+.header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 22px; }
+.logo h1 { margin: 0; font-size: 26px; font-weight: 900; letter-spacing: 5px; }
+.logo p { margin: 3px 0 0; font-size: 10px; letter-spacing: 3px; color: var(--accent); font-weight: 600; }
 
-/* =========================
-   HEADER
-========================= */
+.icon-btn {
+  width: 44px; height: 44px; border-radius: 14px;
+  background: var(--panel); border: 1px solid var(--line);
+  display: flex; align-items: center; justify-content: center;
+}
+svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
-.topbar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+/* ----- Ansichten ----- */
+.view { display: none; }
+.view.active { display: block; animation: fade 0.25s ease; }
+@keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 
-    padding: 24px 20px 8px;
+.eyebrow { margin: 0; font-size: 11px; letter-spacing: 2.5px; color: var(--accent); font-weight: 700; }
+.page-title { margin: 4px 0 16px; font-size: 28px; font-weight: 800; }
+.hint { color: var(--muted); font-size: 14px; line-height: 1.5; margin: -6px 0 16px; }
+
+.panel {
+  background: linear-gradient(180deg, var(--panel-2), var(--panel));
+  border: 1px solid var(--line);
+  border-radius: 24px;
 }
 
-.logo {
-    font-size: 26px;
-    font-weight: 900;
-    letter-spacing: 4px;
+/* ----- Kalender ----- */
+.calendar { padding: 14px 10px 12px; }
+.month-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.month-title { font-size: 18px; font-weight: 700; }
+.nav-btn {
+  width: 44px; height: 44px; border-radius: 14px; font-size: 26px; line-height: 1;
+  background: rgba(255, 255, 255, 0.05);
 }
+.nav-btn:active, .icon-btn:active { transform: scale(0.94); }
 
-.tagline {
-    margin-top: 4px;
-
-    color: var(--muted);
-    font-size: 9px;
-    font-weight: 700;
-    letter-spacing: 2px;
-}
-
-.round-btn {
-    width: 44px;
-    height: 44px;
-
-    border-radius: 14px;
-
-    background: var(--panel);
-    color: white;
-
-    border: 1px solid var(--border);
-
-    font-size: 19px;
-}
-
-
-/* =========================
-   MAIN
-========================= */
-
-main {
-    padding: 10px 16px 0;
-}
-
-.hero {
-    display: flex;
-    justify-content: space-between;
-    align-items: end;
-
-    margin: 22px 4px 18px;
-}
-
-.eyebrow {
-    color: #a99aff;
-
-    font-size: 9px;
-    font-weight: 800;
-    letter-spacing: 2px;
-}
-
-.hero h1 {
-    margin: 5px 0 0;
-
-    font-size: 28px;
-    line-height: 1.1;
-    letter-spacing: -0.8px;
-}
-
-.today-label {
-    color: var(--muted);
-    font-size: 12px;
-}
-
-
-/* =========================
-   CALENDAR
-========================= */
-
-.calendar {
-    background: var(--panel);
-
-    border: 1px solid var(--border);
-    border-radius: 26px;
-
-    padding: 20px 15px 16px;
-
-    box-shadow:
-        0 18px 50px rgba(0, 0, 0, 0.28);
-}
-
-.calendar-header {
-    display: grid;
-    grid-template-columns: 44px 1fr 44px;
-
-    align-items: center;
-
-    margin-bottom: 24px;
-}
-
-.calendar-header h2 {
-    margin: 0;
-
-    text-align: center;
-
-    font-size: 18px;
-    font-weight: 750;
-
-    text-transform: capitalize;
-}
-
-.month-btn {
-    width: 44px;
-    height: 44px;
-
-    border-radius: 13px;
-
-    background: var(--panel-2);
-    color: white;
-
-    border: 1px solid var(--border);
-
-    font-size: 26px;
-    line-height: 1;
-}
-
-.weekday-row {
-    display: grid;
-
-    grid-template-columns:
-        repeat(7, minmax(0, 1fr));
-
-    width: 100%;
-
-    margin-bottom: 8px;
-}
-
-.weekday-row span {
-    min-width: 0;
-
-    text-align: center;
-
-    color: var(--muted);
-
-    font-size: 10px;
-    font-weight: 800;
-    letter-spacing: 0.5px;
-}
-
-
-/* =========================
-   TAGE
-========================= */
-
-.calendar-grid {
-    display: grid;
-
-    grid-template-columns:
-        repeat(7, minmax(0, 1fr));
-
-    width: 100%;
-
-    gap: 5px;
-}
+/* Wochentage und Tage nutzen exakt dasselbe 7-Spalten-Grid */
+.grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.weekdays span { text-align: center; font-size: 11px; font-weight: 700; letter-spacing: 1px; color: var(--muted); padding: 6px 0; }
 
 .day {
-    position: relative;
+  min-width: 0; height: 50px; border-radius: 14px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  font-size: 16px; font-weight: 600;
+  border: 1.5px solid transparent;
+  transition: background 0.15s ease;
+}
+.day:active { transform: scale(0.94); }
+.day.other { opacity: 0.28; }
+.day.today { border-color: var(--accent); color: var(--accent); }
+.day.selected { background: var(--accent); color: #fff; border-color: var(--accent); }
 
-    width: 100%;
-    aspect-ratio: 1 / 1;
+.dots { height: 5px; display: flex; gap: 3px; }
+.dot { width: 5px; height: 5px; border-radius: 50%; }
+.dot-planned { background: var(--accent); }
+.dot-done { background: var(--green); }
+.dot-rest { background: var(--muted); }
+.day.selected .dot-planned { background: #fff; }
 
-    min-width: 0;
-    min-height: 42px;
+/* ----- Tagesübersicht ----- */
+.day-label { margin-top: 26px; }
+.day-title { margin: 4px 0 14px; font-size: 22px; font-weight: 800; }
 
-    display: flex;
-    flex-direction: column;
+.card {
+  padding: 20px; border-radius: 22px;
+  background: var(--panel); border: 1px solid var(--line);
+  animation: fade 0.25s ease;
+}
+.card.empty { text-align: center; color: var(--muted); }
+.card.empty strong { display: block; color: var(--text); font-size: 16px; margin-bottom: 6px; }
+.card.empty span { font-size: 14px; line-height: 1.5; }
 
-    align-items: center;
-    justify-content: center;
+/* ----- Wochenplan ----- */
+.plan-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 18px; margin-bottom: 10px; border-radius: 18px;
+  background: var(--panel); border: 1px solid var(--line);
+}
+.plan-row strong { font-size: 13px; letter-spacing: 2px; }
+.plan-row span { font-size: 14px; color: var(--muted); }
 
-    border-radius: 14px;
+/* ----- Einstellungen ----- */
+.settings-list { padding: 4px 18px; }
+.row { display: flex; align-items: center; justify-content: space-between; padding: 16px 0; border-bottom: 1px solid var(--line); font-size: 15px; }
+.row:last-child { border-bottom: 0; }
+.row em { font-style: normal; font-size: 13px; color: var(--muted); }
 
-    background: transparent;
-    color: var(--text);
+/* ----- Bottom Navigation ----- */
+.tabbar {
+  position: fixed; left: 0; right: 0; bottom: 0;
+  max-width: 680px; margin: 0 auto;
+  display: flex; gap: 6px;
+  padding: 8px 12px calc(env(safe-area-inset-bottom, 0px) + 8px);
+  background: rgba(13, 16, 22, 0.97);
+  border-top: 1px solid var(--line);
+}
+.tab {
+  flex: 1; min-height: 56px; border-radius: 16px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  color: var(--muted); font-size: 11px; font-weight: 600;
+}
+.tab:active { transform: scale(0.95); }
+.tab.active { color: var(--accent); background: rgba(128, 103, 255, 0.12); }
 
-    transition:
-        background 0.15s ease,
-        transform 0.15s ease;
+/* ----- Kleine Bildschirme ----- */
+@media (max-width: 360px) {
+  .day { height: 44px; font-size: 14px; }
+  .page-title { font-size: 24px; }
 }
 
-.day:active {
-    transform: scale(0.94);
-}
-
-.day-number {
-    font-size: 14px;
-    font-weight: 700;
-}
-
-.day.today {
-    background: var(--accent-soft);
-
-    box-shadow:
-        inset 0 0 0 1px rgba(128, 103, 255, 0.5);
-}
-
-.day.today .day-number {
-    color: #b5a9ff;
-}
-
-.day.selected {
-    background: var(--accent);
-
-    box-shadow:
-        0 7px 20px rgba(128, 103, 255, 0.28);
-}
-
-.day.selected .day-number {
-    color: white;
-}
-
-.day.other-month {
-    color: #3b424d;
-}
-
-.dot {
-    width: 5px;
-    height: 5px;
-
-    margin-top: 4px;
-
-    border-radius: 50%;
-}
-
-.training-dot {
-    background: var(--green);
-
-    box-shadow:
-        0 0 8px rgba(69, 224, 163, 0.45);
-}
-
-
-/* =========================
-   AUSGEWÄHLTER TAG
-========================= */
-
-.selected-day {
-    margin-top: 14px;
-
-    padding: 22px;
-
-    background: var(--panel);
-
-    border: 1px solid var(--border);
-    border-radius: 24px;
-}
-
-.selected-day h2 {
-    margin: 7px 0 18px;
-
-    font-size: 20px;
-}
-
-.training-preview {
-    display: flex;
-    align-items: center;
-
-    gap: 14px;
-
-    padding: 15px;
-
-    background: var(--panel-2);
-
-    border-radius: 18px;
-}
-
-.training-icon {
-    width: 48px;
-    height: 48px;
-
-    flex-shrink: 0;
-
-    display: flex;
-    align-items: center;
-    justify-content: center;
-
-    border-radius: 15px;
-
-    background: var(--accent-soft);
-
-    font-size: 22px;
-}
-
-.training-preview h3 {
-    margin: 0 0 5px;
-
-    font-size: 15px;
-}
-
-.training-preview p {
-    margin: 0;
-
-    color: var(--muted);
-
-    font-size: 12px;
-    line-height: 1.4;
-}
-
-
-/* =========================
-   NAVIGATION
-========================= */
-
-.bottom-nav {
-    position: fixed;
-
-    left: 50%;
-    bottom: 0;
-
-    transform: translateX(-50%);
-
-    width: min(680px, 100%);
-
-    height: 76px;
-
-    display: flex;
-
-    background: rgba(12, 15, 21, 0.96);
-
-    border-top: 1px solid var(--border);
-
-    backdrop-filter: blur(18px);
-
-    z-index: 20;
-}
-
-.nav-item {
-    flex: 1;
-
-    display: flex;
-    flex-direction: column;
-
-    align-items: center;
-    justify-content: center;
-
-    gap: 5px;
-
-    background: transparent;
-
-    color: var(--muted);
-}
-
-.nav-item span {
-    font-size: 20px;
-}
-
-.nav-item small {
-    font-size: 9px;
-    font-weight: 700;
-}
-
-.nav-item.active {
-    color: #a99aff;
-}
-
-
-/* =========================
-   WOCHENPLAN
-========================= */
-
-.hidden {
-    display: none !important;
-}
-
-.page-heading {
-    padding: 24px 4px 20px;
-}
-
-.page-heading h1 {
-    margin: 6px 0;
-
-    font-size: 28px;
-}
-
-.page-heading p {
-    margin: 0;
-
-    color: var(--muted);
-
-    font-size: 13px;
-    line-height: 1.5;
-}
-
-.plan-card {
-    display: flex;
-    align-items: center;
-
-    gap: 13px;
-
-    margin-bottom: 10px;
-    padding: 15px;
-
-    background: var(--panel);
-
-    border: 1px solid var(--border);
-    border-radius: 19px;
-}
-
-.plan-day {
-    width: 46px;
-    height: 46px;
-
-    flex-shrink: 0;
-
-    display: flex;
-    align-items: center;
-    justify-content: center;
-
-    border-radius: 14px;
-
-    background: var(--accent-soft);
-
-    color: #aaa0ff;
-
-    font-size: 11px;
-    font-weight: 900;
-}
-
-.plan-info {
-    min-width: 0;
-    flex: 1;
-}
-
-.plan-info h3 {
-    margin: 0 0 4px;
-
-    font-size: 14px;
-}
-
-.plan-info p {
-    margin: 0;
-
-    color: var(--muted);
-
-    font-size: 11px;
-
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.edit-plan-btn {
-    width: 40px;
-    height: 40px;
-
-    flex-shrink: 0;
-
-    border-radius: 12px;
-
-    background: var(--panel-2);
-    color: white;
-
-    border: 1px solid var(--border);
-}
-
-
-/* =========================
-   EINSTELLUNGEN
-========================= */
-
-.settings-card {
-    padding: 21px;
-
-    background: var(--panel);
-
-    border: 1px solid var(--border);
-    border-radius: 22px;
-}
-
-.settings-card h3 {
-    margin: 0 0 7px;
-
-    font-size: 16px;
-}
-
-.settings-card p {
-    margin: 0 0 18px;
-
-    color: var(--muted);
-
-    font-size: 13px;
-    line-height: 1.5;
-}
-
-
-/* =========================
-   BUTTONS
-========================= */
-
-.primary-btn,
-.secondary-btn,
-.danger-btn {
-    min-height: 44px;
-
-    padding: 0 15px;
-
-    border-radius: 13px;
-
-    font-size: 12px;
-    font-weight: 700;
-}
-
-.primary-btn {
-    background: var(--accent);
-    color: white;
-}
-
-.secondary-btn {
-    background: var(--panel-2);
-    color: white;
-
-    border: 1px solid var(--border);
-}
-
-.danger-btn {
-    background: rgba(255, 80, 100, 0.12);
-    color: #ff6d80;
-}
-
-
-/* =========================
-   MODAL
-========================= */
-
-.modal {
-    position: fixed;
-
-    inset: 0;
-
-    z-index: 100;
-
-    display: flex;
-    align-items: end;
-    justify-content: center;
-
-    padding: 12px;
-
-    background: rgba(0, 0, 0, 0.72);
-
-    backdrop-filter: blur(10px);
-}
-
-.modal-content {
-    width: 100%;
-    max-width: 620px;
-
-    padding: 25px;
-
-    background: #11151c;
-
-    border: 1px solid var(--border);
-    border-radius: 26px;
-}
-
-.modal-content h2 {
-    margin: 5px 0 22px;
-
-    font-size: 22px;
-}
-
-.close-btn {
-    float: right;
-
-    width: 36px;
-    height: 36px;
-
-    border-radius: 50%;
-
-    background: var(--panel-2);
-    color: white;
-
-    font-size: 22px;
-}
-
-.modal-content label {
-    display: block;
-
-    margin: 14px 0 7px;
-
-    color: var(--muted);
-
-    font-size: 11px;
-    font-weight: 700;
-}
-
-.modal-content input,
-.modal-content textarea {
-    width: 100%;
-
-    padding: 13px;
-
-    background: #090c11;
-
-    border: 1px solid var(--border);
-    border-radius: 13px;
-
-    color: white;
-
-    outline: none;
-}
-
-.modal-content textarea {
-    min-height: 90px;
-
-    resize: vertical;
-}
-
-.modal-actions {
-    display: flex;
-    justify-content: space-between;
-
-    gap: 10px;
-
-    margin-top: 22px;
-}
-
-
-/* =========================
-   IPHONE / KLEINE DISPLAYS
-========================= */
-
-@media (max-width: 380px) {
-
-    main {
-        padding-left: 11px;
-        padding-right: 11px;
-    }
-
-    .calendar {
-        padding-left: 10px;
-        padding-right: 10px;
-    }
-
-    .calendar-grid {
-        gap: 3px;
-    }
-
-    .day {
-        border-radius: 11px;
-    }
-
-    .day-number {
-        font-size: 13px;
-    }
-
-    .weekday-row span {
-        font-size: 9px;
-    }
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
 }
