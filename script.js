@@ -1,8 +1,8 @@
 "use strict";
 
-/* ===== GRITEX – Version 0.4 =====
+/* ===== GRITEX – Version 0.5 =====
    Kalender, Wochenplan (wiederholt sich), Ausnahmen pro Tag, Ruhetage,
-   Abhaken, Einstellungen, Speicherung im LocalStorage. */
+   Abhaken, Rangsystem, Einstellungen, Speicherung im LocalStorage. */
 
 const MONTHS = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"];
 const WEEKDAYS = ["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"]; // Index = Date.getDay()
@@ -17,6 +17,21 @@ const TYPES = {
   endurance: { icon: "🔥", label: "Ausdauer" },
   other:     { icon: "🎯", label: "Sonstiges" }
 };
+
+// Ränge: min = benötigte Anzahl erledigter Einheiten; c1/c2 = Farbverlauf, glow = Leuchtfarbe
+const RANKS = [
+  { name: "Bronze",   min: 0,   c1: "#F0B27A", c2: "#8A5325", glow: "rgba(205,127,50,0.55)" },
+  { name: "Silber",   min: 5,   c1: "#F4F7FB", c2: "#7F8B9B", glow: "rgba(200,210,225,0.45)" },
+  { name: "Gold",     min: 30,  c1: "#FFE38A", c2: "#C4901A", glow: "rgba(255,208,80,0.55)" },
+  { name: "Diamant",  min: 50,  c1: "#9CF6FF", c2: "#2C8CF0", glow: "rgba(90,210,255,0.55)" },
+  { name: "Platin",   min: 100, c1: "#F3F1FF", c2: "#8C86C8", glow: "rgba(190,180,255,0.5)" },
+  { name: "Meister",  min: 250, c1: "#C9A8FF", c2: "#5B32D6", glow: "rgba(150,100,255,0.6)" },
+  { name: "Champion", min: 500, c1: "#FF9A6B", c2: "#E0264F", glow: "rgba(255,80,110,0.6)" }
+];
+
+// Maße des Rangwegs (in Pixeln)
+const RANK_SEG = 140;   // Abstand zwischen zwei Rängen
+const RANK_PAD = 70;    // Rand oben und unten
 
 const KEY_PLAN = "gritex_weekly_plan";
 const KEY_OVERRIDES = "gritex_overrides";
@@ -34,9 +49,12 @@ const state = {
   weeklyPlan: emptyPlan(),
   overrides: {},
   done: {},
+  markerY: 0,            // Position des Punkts im Rangweg
   editing: null,         // offenes Modal: { kind: "plan" | "session", day / date, id }
   confirmAction: null    // Aktion der Sicherheitsabfrage
 };
+
+let badgeSeq = 0;        // eindeutige IDs für die Abzeichen-Farbverläufe
 
 /* ----- Hilfsfunktionen ----- */
 function $(id) { return document.getElementById(id); }
@@ -209,6 +227,7 @@ function toggleDone(key, id) {
   saveData();
   renderCalendar();
   renderSelectedDay();
+  renderRanks();
 }
 
 // Erledigt-Markierung entfernen (bei einem Datum oder bei allen, wenn dateKey fehlt)
@@ -228,6 +247,153 @@ function getDayMarkers(key) {
   if (day.items.length === 0) return [];
   const allDone = day.items.every(function (i) { return isDone(key, i.id); });
   return [allDone ? "done" : "planned"];
+}
+
+/* ----- Rangsystem ----- */
+// Zählt alle Einheiten, die es noch gibt und die abgehakt sind
+function countCompleted() {
+  let n = 0;
+  Object.keys(state.done).forEach(function (key) {
+    const day = getDay(key);
+    if (day.rest) return;
+    day.items.forEach(function (item) {
+      if (isDone(key, item.id)) n++;
+    });
+  });
+  return n;
+}
+
+function getRankIndex(count) {
+  let idx = 0;
+  for (let i = 0; i < RANKS.length; i++) {
+    if (count >= RANKS[i].min) idx = i;
+  }
+  return idx;
+}
+
+function unitWord(n) { return n === 1 ? "Einheit" : "Einheiten"; }
+
+// Symbol im Schild (Koordinaten im 100er-Raster)
+function emblem(i, id) {
+  const f = "url(#" + id + ")";
+  const chev = function (y) {
+    return '<path d="M33 ' + y + ' L50 ' + (y + 13) + ' L67 ' + y + '" fill="none" stroke="' + f + '" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>';
+  };
+  const star = "M50 31 L56 45.5 L72 46.8 L60 57 L63.8 72.5 L50 64 L36.2 72.5 L40 57 L28 46.8 L44 45.5 Z";
+  const crown = '<path d="M31 64 L33 40 L43 51 L50 36 L57 51 L67 40 L69 64 Z" fill="' + f + '"/>' +
+                '<rect x="31" y="67" width="38" height="6" rx="3" fill="' + f + '"/>';
+
+  if (i === 0) return chev(45);
+  if (i === 1) return chev(38) + chev(54);
+  if (i === 2) return chev(32) + chev(47) + chev(62);
+  if (i === 3) {
+    return '<path d="M50 32 L68 47 L50 72 L32 47 Z" fill="' + f + '"/>' +
+           '<path d="M32 47 H68 M42 47 L50 72 L58 47 L50 32 Z" fill="none" stroke="#0B0E14" stroke-opacity="0.4" stroke-width="2" stroke-linejoin="round"/>';
+  }
+  if (i === 4) return '<path d="' + star + '" fill="' + f + '"/>';
+  if (i === 5) return crown;
+  return '<g transform="translate(0 4)">' + crown + '</g>' +
+         '<path d="' + star + '" fill="' + f + '" transform="translate(50 29) scale(0.4) translate(-50 -52)"/>';
+}
+
+// Komplettes Abzeichen als SVG-Text (nur feste, eigene Werte – keine Nutzereingaben)
+function badgeSvg(i) {
+  const r = RANKS[i];
+  const id = "grad" + (badgeSeq++);
+  const defs = '<defs><linearGradient id="' + id + '" x1="0" y1="0" x2="0" y2="1">' +
+    '<stop offset="0" stop-color="' + r.c1 + '"/><stop offset="1" stop-color="' + r.c2 + '"/></linearGradient></defs>';
+  const shield =
+    '<path d="M50 5 L89 19 V52 C89 75 71 91 50 97 C29 91 11 75 11 52 V19 Z" fill="url(#' + id + ')"/>' +
+    '<path d="M50 14 L80 25 V52 C80 69 66 82 50 88 C34 82 20 69 20 52 V25 Z" fill="#0B0E14" fill-opacity="0.72"/>' +
+    '<path d="M50 5 L89 19 V36 L50 24 L11 36 V19 Z" fill="#fff" fill-opacity="0.14"/>';
+  return '<svg viewBox="0 0 100 102" aria-hidden="true">' + defs + shield + emblem(i, id) + '</svg>';
+}
+
+function badgeEl(i, cls) {
+  const d = h("div", cls);
+  d.innerHTML = badgeSvg(i);
+  return d;
+}
+
+function renderRanks() {
+  const hero = $("rank-hero");
+  const path = $("rank-path");
+  if (!hero || !path) return;
+
+  const count = countCompleted();
+  const cur = getRankIndex(count);
+  const rank = RANKS[cur];
+  const next = cur < RANKS.length - 1 ? RANKS[cur + 1] : null;
+
+  // Oben: aktueller Rang groß
+  hero.innerHTML = "";
+  const box = h("div", "panel rank-hero");
+  box.appendChild(h("div", "eyebrow", "DEIN RANG"));
+  const big = badgeEl(cur, "rank-badge-big");
+  big.style.filter = "drop-shadow(0 0 22px " + rank.glow + ")";
+  box.appendChild(big);
+  box.appendChild(h("div", "rank-name", rank.name));
+  box.appendChild(h("div", "rank-count", count + " " + unitWord(count) + " absolviert"));
+
+  const bar = h("div", "rank-progress");
+  const fill = h("div", "rank-progress-fill");
+  const pct = next ? Math.round(((count - rank.min) / (next.min - rank.min)) * 100) : 100;
+  fill.style.width = pct + "%";
+  bar.appendChild(fill);
+  box.appendChild(bar);
+  box.appendChild(h("div", "rank-next", next ? "Noch " + (next.min - count) + " bis " + next.name : "Höchster Rang erreicht"));
+  hero.appendChild(box);
+
+  // Darunter: Weg (Champion oben, Bronze unten)
+  const n = RANKS.length;
+  const yOf = function (i) { return RANK_PAD + (n - 1 - i) * RANK_SEG; };
+
+  // Punkt liegt zwischen aktuellem und nächstem Rang, passend zum Fortschritt
+  let markerY = yOf(cur);
+  if (next) markerY -= ((count - rank.min) / (next.min - rank.min)) * RANK_SEG;
+  state.markerY = markerY;
+
+  path.innerHTML = "";
+  path.style.height = (RANK_PAD * 2 + (n - 1) * RANK_SEG) + "px";
+
+  const track = h("div", "track");
+  track.style.top = yOf(n - 1) + "px";
+  track.style.height = ((n - 1) * RANK_SEG) + "px";
+  path.appendChild(track);
+
+  const trackFill = h("div", "track-fill");
+  trackFill.style.top = markerY + "px";
+  trackFill.style.height = (yOf(0) - markerY) + "px";
+  path.appendChild(trackFill);
+
+  RANKS.forEach(function (r, i) {
+    const y = yOf(i);
+
+    const dot = h("div", "node-dot" + (i <= cur ? " reached" : ""));
+    dot.style.top = (y - 7) + "px";
+    path.appendChild(dot);
+
+    const card = h("div", "rank-card " + (i < cur ? "reached" : i === cur ? "current" : "locked"));
+    card.style.top = (y - 44) + "px";
+    card.appendChild(badgeEl(i, "badge"));
+    const text = h("div", "rank-text");
+    text.appendChild(h("strong", "", r.name));
+    text.appendChild(h("span", "", r.min === 0 ? "Startrang" : "ab " + r.min + " Einheiten"));
+    card.appendChild(text);
+    path.appendChild(card);
+  });
+
+  const marker = h("div", "marker", String(count));
+  marker.style.top = (markerY - 19) + "px";
+  marker.setAttribute("aria-label", count + " " + unitWord(count) + " absolviert");
+  path.appendChild(marker);
+}
+
+// Weg so scrollen, dass der Punkt in der Mitte sichtbar ist
+function scrollRanksToMarker() {
+  const wrap = $("rank-scroll");
+  if (!wrap) return;
+  wrap.scrollTop = Math.max(0, state.markerY - wrap.clientHeight / 2);
 }
 
 /* ----- Kalender ----- */
@@ -387,6 +553,7 @@ function renderAll() {
   renderCalendar();
   renderSelectedDay();
   renderWeeklyPlan();
+  renderRanks();
 }
 
 /* ----- Ruhetag / Ausnahme entfernen ----- */
@@ -551,7 +718,7 @@ function selectDate(key) {
 }
 
 function showView(name) {
-  const views = ["calendar", "plan", "settings"];
+  const views = ["calendar", "plan", "ranks", "settings"];
   if (views.indexOf(name) === -1) return;
   state.view = name;
   views.forEach(function (v) {
@@ -562,6 +729,10 @@ function showView(name) {
     tab.classList.toggle("active", tab.dataset.view === name);
   });
   window.scrollTo(0, 0);
+  if (name === "ranks") {
+    renderRanks();
+    scrollRanksToMarker();   // erst nach dem Einblenden möglich
+  }
 }
 
 /* ----- Event-Listener (einmalig beim Start) ----- */
