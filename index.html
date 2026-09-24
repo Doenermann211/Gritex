@@ -1,146 +1,88 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gritex</title>
-    <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#07090D">
+  <title>GRITEX</title>
+  <link rel="stylesheet" href="style.css">
 </head>
-
 <body>
+  <div class="app">
 
-<div class="app">
-
-    <header class="topbar">
-        <div>
-            <div class="logo">GRITEX</div>
-            <div class="tagline">TRAIN • PLAN • IMPROVE</div>
-        </div>
-
-        <button class="round-btn" id="settingsBtn">⚙</button>
+    <!-- Kopfbereich mit Logo -->
+    <header class="header">
+      <div class="logo">
+        <h1>GRITEX</h1>
+        <p>TRAIN • PLAN • IMPROVE</p>
+      </div>
+      <button type="button" class="icon-btn" data-view="settings" aria-label="Einstellungen öffnen">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg>
+      </button>
     </header>
 
-
     <main>
+      <!-- ANSICHT: Kalender -->
+      <section id="view-calendar" class="view active">
+        <p class="eyebrow">DEIN PLAN</p>
+        <h2 class="page-title">Trainingskalender</h2>
 
-        <div class="hero">
-            <div>
-                <span class="eyebrow">DEIN PLAN</span>
-                <h1>Trainingskalender</h1>
-            </div>
-
-            <div class="today-label">Heute</div>
+        <div class="panel calendar">
+          <div class="month-bar">
+            <button type="button" id="prev-month" class="nav-btn" aria-label="Vorheriger Monat">‹</button>
+            <div id="month-title" class="month-title">September 2026</div>
+            <button type="button" id="next-month" class="nav-btn" aria-label="Nächster Monat">›</button>
+          </div>
+          <div class="grid weekdays">
+            <span>MO</span><span>DI</span><span>MI</span><span>DO</span><span>FR</span><span>SA</span><span>SO</span>
+          </div>
+          <div id="calendar-grid" class="grid days"></div>
         </div>
 
+        <p id="day-label" class="eyebrow day-label">HEUTE</p>
+        <h3 id="day-title" class="day-title"></h3>
+        <div id="day-content"></div>
+      </section>
 
-        <section class="calendar">
+      <!-- ANSICHT: Wochenplan -->
+      <section id="view-plan" class="view">
+        <p class="eyebrow">STANDARDWOCHE</p>
+        <h2 class="page-title">Wochenplan</h2>
+        <p class="hint">Hier legst du später deinen Plan fest, der sich jede Woche wiederholt.</p>
+        <div id="plan-list"></div>
+      </section>
 
-            <div class="calendar-header">
-                <button class="month-btn" id="prevMonth">‹</button>
-
-                <h2 id="monthTitle">September 2026</h2>
-
-                <button class="month-btn" id="nextMonth">›</button>
-            </div>
-
-
-            <div class="weekday-row">
-                <span>MO</span>
-                <span>DI</span>
-                <span>MI</span>
-                <span>DO</span>
-                <span>FR</span>
-                <span>SA</span>
-                <span>SO</span>
-            </div>
-
-
-            <div id="calendarGrid" class="calendar-grid">
-
-                <button class="day">1</button>
-                <button class="day">2</button>
-                <button class="day">3</button>
-                <button class="day">4</button>
-                <button class="day">5</button>
-                <button class="day">6</button>
-                <button class="day">7</button>
-
-                <button class="day">8</button>
-                <button class="day">9</button>
-                <button class="day">10</button>
-                <button class="day">11</button>
-                <button class="day">12</button>
-                <button class="day">13</button>
-                <button class="day">14</button>
-
-                <button class="day">15</button>
-                <button class="day">16</button>
-                <button class="day">17</button>
-                <button class="day">18</button>
-                <button class="day">19</button>
-                <button class="day">20</button>
-                <button class="day">21</button>
-
-                <button class="day today">22</button>
-                <button class="day">23</button>
-                <button class="day">24</button>
-                <button class="day">25</button>
-                <button class="day">26</button>
-                <button class="day">27</button>
-                <button class="day">28</button>
-
-                <button class="day">29</button>
-                <button class="day">30</button>
-
-            </div>
-
-        </section>
-
-
-        <section class="selected-day">
-
-            <span class="eyebrow">HEUTE</span>
-
-            <h2>Montag, 22. September</h2>
-
-            <div class="training-preview">
-
-                <div class="training-icon">🏃</div>
-
-                <div>
-                    <h3>Lockerer Lauf</h3>
-                    <p>30 Minuten entspannt laufen</p>
-                </div>
-
-            </div>
-
-        </section>
-
+      <!-- ANSICHT: Einstellungen -->
+      <section id="view-settings" class="view">
+        <p class="eyebrow">APP</p>
+        <h2 class="page-title">Einstellungen</h2>
+        <div class="panel settings-list">
+          <div class="row"><span>Benachrichtigungen</span><em>Bald</em></div>
+          <div class="row"><span>Trainingserinnerung</span><em>Bald</em></div>
+          <div class="row"><span>Wochenplan zurücksetzen</span><em>Bald</em></div>
+          <div class="row"><span>Daten löschen</span><em>Bald</em></div>
+          <div class="row"><span>Über GRITEX</span><em>Version 0.1</em></div>
+        </div>
+      </section>
     </main>
 
-
-    <nav class="bottom-nav">
-
-        <button class="nav-item active">
-            <span>▦</span>
-            <small>Kalender</small>
-        </button>
-
-        <button class="nav-item">
-            <span>☷</span>
-            <small>Wochenplan</small>
-        </button>
-
-        <button class="nav-item">
-            <span>⚙</span>
-            <small>Einstellungen</small>
-        </button>
-
+    <!-- Bottom Navigation -->
+    <nav class="tabbar" aria-label="Hauptnavigation">
+      <button type="button" class="tab active" data-view="calendar">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+        <span>Kalender</span>
+      </button>
+      <button type="button" class="tab" data-view="plan">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+        <span>Wochenplan</span>
+      </button>
+      <button type="button" class="tab" data-view="settings">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg>
+        <span>Settings</span>
+      </button>
     </nav>
 
-</div>
-
-<script src="script.js"></script>
-
+  </div>
+  <script src="script.js"></script>
 </body>
 </html>
