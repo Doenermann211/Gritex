@@ -1,9 +1,9 @@
 "use strict";
 
-/* ===== GRITEX – Version 0.6 =====
-   Kalender, Wochenplan MIT VERLAUF (Änderungen gelten ab dem Änderungstag,
-   Vergangenheit bleibt unverändert), Ausnahmen pro Tag, Ruhetage,
-   Abhaken (nur am aktuellen Tag), Rangsystem, Einstellungen, LocalStorage. */
+/* ===== GRITEX – Version 0.7 =====
+   Kalender, Wochenplan MIT VERLAUF, Ausnahmen pro Tag, Ruhetage,
+   Abhaken (nur am aktuellen Tag), Rangsystem, Designauswahl,
+   Einstellungen, LocalStorage. */
 
 const MONTHS = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"];
 const WEEKDAYS = ["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"]; // Index = Date.getDay()
@@ -34,17 +34,28 @@ const RANKS = [
 const RANK_SEG = 140;   // Abstand zwischen zwei Rängen
 const RANK_PAD = 70;    // Rand oben und unten
 
+// Designs: ändern nur die Akzentfarbe (Rest der App bleibt gleich)
+const THEMES = [
+  { id: "violet",  name: "Violett", accent: "#8067FF", light: "#B9A8FF", rgb: "128, 103, 255" },
+  { id: "blue",    name: "Blau",    accent: "#4F8CFF", light: "#A8C8FF", rgb: "79, 140, 255" },
+  { id: "teal",    name: "Türkis",  accent: "#22C3A6", light: "#8FEAD6", rgb: "34, 195, 166" },
+  { id: "orange",  name: "Orange",  accent: "#FF9F45", light: "#FFCF9E", rgb: "255, 159, 69" },
+  { id: "pink",    name: "Pink",    accent: "#FF5FA8", light: "#FFB4D6", rgb: "255, 95, 168" }
+];
+
 const KEY_PLAN_OLD = "gritex_weekly_plan";       // altes Format (Version 0.5 und früher)
-const KEY_PLAN_HISTORY = "gritex_plan_history";  // neues Format mit Verlauf
+const KEY_PLAN_HISTORY = "gritex_plan_history";  // Format mit Verlauf (ab Version 0.6)
 const KEY_OVERRIDES = "gritex_overrides";
 const KEY_DONE = "gritex_done";
+const KEY_THEME = "gritex_theme";
 
 /* Datenmodell:
    planHistory: [{ from: "2026-09-25", plan: [7 Listen] }, ...] – aufsteigend sortiert.
                 Für ein Datum gilt immer die zuletzt begonnene Version mit from <= Datum.
                 So bleiben ältere Tage beim Ändern des Wochenplans unverändert.
    overrides:   { "2026-10-07": { rest: false, items: [...] } } – ersetzt den Plan nur an diesem Tag.
-   done:        { "2026-10-07": { "<einheit-id>": true } } – erledigt pro Datum. */
+   done:        { "2026-10-07": { "<einheit-id>": true } } – erledigt pro Datum.
+   theme:       id eines Eintrags aus THEMES. */
 const state = {
   viewYear: 0,
   viewMonth: 0,
@@ -53,6 +64,7 @@ const state = {
   planHistory: [],
   overrides: {},
   done: {},
+  theme: THEMES[0].id,
   markerY: 0,            // Position des Punkts im Rangweg
   editing: null,         // offenes Modal: { kind: "plan" | "session", day / date, id }
   confirmAction: null    // Aktion der Sicherheitsabfrage
@@ -204,12 +216,51 @@ function loadData() {
     });
   }
   state.done = cleanDone;
+
+  // Design
+  const th = safeGet(KEY_THEME);
+  state.theme = (typeof th === "string" && THEMES.some(function (t) { return t.id === th; }))
+    ? th
+    : THEMES[0].id;
 }
 
 function saveData() {
   safeSet(KEY_PLAN_HISTORY, state.planHistory);
   safeSet(KEY_OVERRIDES, state.overrides);
   safeSet(KEY_DONE, state.done);
+}
+
+/* ----- Design ----- */
+function applyTheme(id) {
+  const t = THEMES.find(function (x) { return x.id === id; }) || THEMES[0];
+  const root = document.documentElement.style;
+  root.setProperty("--accent", t.accent);
+  root.setProperty("--accent-light", t.light);
+  root.setProperty("--accent-rgb", t.rgb);
+}
+
+function setTheme(id) {
+  state.theme = THEMES.some(function (t) { return t.id === id; }) ? id : THEMES[0].id;
+  applyTheme(state.theme);
+  safeSet(KEY_THEME, state.theme);
+  renderThemePicker();
+}
+
+function renderThemePicker() {
+  const row = $("theme-row");
+  if (!row) return;
+  row.innerHTML = "";
+  THEMES.forEach(function (t) {
+    const btn = h("button", "theme-swatch" + (t.id === state.theme ? " active" : ""));
+    btn.type = "button";
+    const dot = h("div", "theme-dot");
+    dot.style.background = t.accent;
+    btn.appendChild(dot);
+    btn.appendChild(h("span", "", t.name));
+    btn.setAttribute("aria-label", "Design " + t.name + (t.id === state.theme ? " (ausgewählt)" : ""));
+    btn.addEventListener("click", function () { setTheme(t.id); });
+    row.appendChild(btn);
+  });
 }
 
 /* ----- Wochenplan-Verlauf ----- */
@@ -532,357 +583,4 @@ function renderSelectedDay() {
   const tKey = todayKey();
   const today = parseKey(tKey);
   const diff = Math.round((sel - today) / 86400000);
-  label.textContent = diff === 0 ? "HEUTE" : diff === 1 ? "MORGEN" : diff === -1 ? "GESTERN" : "AUSGEWÄHLT";
-  title.textContent = formatDate(sel);
-
-  content.innerHTML = "";
-  const key = state.selectedKey;
-  const day = getDay(key);
-  const isToday = key === tKey;
-
-  if (day.rest) {
-    const card = h("div", "card-item");
-    card.appendChild(h("div", "card-icon rest", "🌙"));
-    const body = h("div", "card-body");
-    body.appendChild(h("strong", "", "Ruhetag"));
-    body.appendChild(h("p", "", "Erholung gehört zum Training."));
-    card.appendChild(body);
-    content.appendChild(card);
-  } else if (day.items.length === 0) {
-    const card = h("div", "card empty");
-    card.appendChild(h("strong", "", "Keine Einheit geplant."));
-    card.appendChild(h("span", "", "Für diesen Tag steht noch nichts auf dem Plan."));
-    content.appendChild(card);
-  } else {
-    day.items.forEach(function (item) {
-      content.appendChild(buildCard(item, function () {
-        openModal({ kind: "session", date: key, id: item.id });
-      }, key, isToday));
-    });
-    if (!isToday) {
-      content.appendChild(h("p", "hint day-hint", "Abhaken ist nur am aktuellen Tag möglich."));
-    }
-  }
-
-  content.appendChild(makeBtn("add-btn", "+ Training hinzufügen", function () {
-    openModal({ kind: "session", date: key, id: null });
-  }));
-
-  const actions = h("div", "actions");
-  if (day.rest) {
-    actions.appendChild(makeBtn("ghost-btn", "Ruhetag aufheben", function () { clearOverride(key); }));
-  } else {
-    actions.appendChild(makeBtn("ghost-btn", "🌙 Ruhetag", function () { setRestDay(key); }));
-    if (day.custom) {
-      actions.appendChild(makeBtn("ghost-btn", "Auf Wochenplan zurücksetzen", function () { clearOverride(key); }));
-    }
-  }
-  content.appendChild(actions);
-}
-
-/* ----- Wochenplan ----- */
-function renderWeeklyPlan() {
-  const list = $("plan-list");
-  if (!list) return;
-  list.innerHTML = "";
-
-  const entry = getActiveEntry(todayKey());
-  const plan = entry ? entry.plan : emptyPlan();
-
-  PLAN_DAYS.forEach(function (name, dayIndex) {
-    const wrap = h("div", "plan-day");
-    const head = h("div", "plan-head");
-    head.appendChild(h("strong", "", name));
-
-    const add = makeBtn("mini-add", "+", function () {
-      openModal({ kind: "plan", day: dayIndex, id: null });
-    });
-    add.setAttribute("aria-label", "Training für " + name.charAt(0) + name.slice(1).toLowerCase() + " hinzufügen");
-    head.appendChild(add);
-    wrap.appendChild(head);
-
-    const items = (plan[dayIndex] || []).filter(isValid);
-    if (items.length === 0) {
-      wrap.appendChild(h("span", "plan-empty", "Noch nichts geplant"));
-    } else {
-      items.forEach(function (item) {
-        wrap.appendChild(buildCard(item, function () {
-          openModal({ kind: "plan", day: dayIndex, id: item.id });
-        }));
-      });
-    }
-    list.appendChild(wrap);
-  });
-}
-
-function renderAll() {
-  renderCalendar();
-  renderSelectedDay();
-  renderWeeklyPlan();
-  renderRanks();
-}
-
-/* ----- Ruhetag / Ausnahme entfernen ----- */
-function setRestDay(key) {
-  state.overrides[key] = { rest: true, items: [] };
-  saveData();
-  renderAll();
-}
-
-function clearOverride(key) {
-  delete state.overrides[key];
-  saveData();
-  renderAll();
-}
-
-/* ----- Fenster sperren den Hintergrund ----- */
-function updateLock() {
-  document.body.classList.toggle("locked", !$("modal").hidden || !$("confirm").hidden);
-}
-
-/* ----- Modal: hinzufügen / bearbeiten ----- */
-function findItem(ctx) {
-  if (!ctx.id) return null;
-  let list;
-  if (ctx.kind === "plan") {
-    const entry = getActiveEntry(todayKey());
-    list = entry ? (entry.plan[ctx.day] || []) : [];
-  } else {
-    list = getDay(ctx.date).items;
-  }
-  for (let i = 0; i < list.length; i++) {
-    if (list[i] && list[i].id === ctx.id) return list[i];
-  }
-  return null;
-}
-
-function openModal(ctx) {
-  const item = findItem(ctx);
-  state.editing = ctx;
-
-  $("modal-title").textContent = item ? "Training bearbeiten" : "Training hinzufügen";
-  $("modal-sub").textContent = ctx.kind === "plan"
-    ? "Jede Woche: " + PLAN_DAYS[ctx.day] + " (Änderung gilt ab heute)"
-    : formatDate(parseKey(ctx.date)) + " (nur dieser Tag)";
-
-  $("f-type").value = item ? item.type : "running";
-  $("f-title").value = item ? item.title : "";
-  $("f-desc").value = item ? (item.description || "") : "";
-  $("f-duration").value = item && item.duration > 0 ? item.duration : "";
-  $("modal-delete").hidden = !item;
-  $("modal").hidden = false;
-  updateLock();
-}
-
-function closeModal() {
-  $("modal").hidden = true;
-  closeConfirm();
-  state.editing = null;
-  updateLock();
-}
-
-// Liste, in die gespeichert wird: die bearbeitbare (heutige) Wochenplan-Version
-// oder die Ausnahme dieses Datums
-function getWritableList(ctx) {
-  if (ctx.kind === "plan") return ensureEditableEntry().plan[ctx.day];
-  const ov = ensureOverride(ctx.date);
-  ov.rest = false;   // Training an einem Ruhetag hebt den Ruhetag auf
-  return ov.items;
-}
-
-function saveModal() {
-  const ctx = state.editing;
-  if (!ctx) return;
-
-  const type = TYPES[$("f-type").value] ? $("f-type").value : "other";
-  const title = $("f-title").value.trim() || TYPES[type].label;
-  const description = $("f-desc").value.trim();
-  let duration = parseInt($("f-duration").value, 10);
-  if (isNaN(duration) || duration < 0) duration = 0;
-  if (duration > 999) duration = 999;
-
-  const list = getWritableList(ctx);
-  let existing = null;
-  for (let i = 0; i < list.length; i++) {
-    if (ctx.id && list[i] && list[i].id === ctx.id) { existing = list[i]; break; }
-  }
-
-  if (existing) {
-    existing.type = type;
-    existing.title = title;
-    existing.description = description;
-    existing.duration = duration;
-  } else {
-    list.push({ id: uid(), type: type, title: title, description: description, duration: duration });
-  }
-  saveData();
-  closeModal();
-  renderAll();
-}
-
-function confirmDelete() {
-  const ctx = state.editing;
-  if (ctx && ctx.id) {
-    const list = getWritableList(ctx);
-    for (let i = 0; i < list.length; i++) {
-      if (list[i] && list[i].id === ctx.id) { list.splice(i, 1); break; }
-    }
-    // Nur bei einer Einzeltag-Einheit den Erledigt-Status genau dieses Tages entfernen.
-    // Beim Löschen aus dem Wochenplan bleibt die bisherige Historie erhalten.
-    if (ctx.kind === "session") pruneDoneAt(ctx.id, ctx.date);
-    saveData();
-  }
-  closeModal();
-  renderAll();
-}
-
-/* ----- Sicherheitsabfrage (für mehrere Aktionen) ----- */
-function askConfirm(title, text, okLabel, action) {
-  $("confirm-title").textContent = title;
-  $("confirm-text").textContent = text;
-  $("confirm-ok").textContent = okLabel;
-  state.confirmAction = action;
-  $("confirm").hidden = false;
-  updateLock();
-}
-
-function closeConfirm() {
-  $("confirm").hidden = true;
-  state.confirmAction = null;
-  updateLock();
-}
-
-function askDelete() {
-  askConfirm("Training löschen?", "Diese Trainingseinheit wird gelöscht.", "Löschen", confirmDelete);
-}
-
-/* ----- Einstellungen ----- */
-// Setzt den Wochenplan ab heute auf leer zurück. Vergangene Tage und
-// bereits abgehakte Einheiten bleiben unverändert erhalten.
-function resetPlan() {
-  const entry = ensureEditableEntry();
-  entry.plan = emptyPlan();
-  saveData();
-  renderAll();
-}
-
-function clearAllData() {
-  state.planHistory = [];
-  state.overrides = {};
-  state.done = {};
-  saveData();
-  renderAll();
-}
-
-/* ----- Navigation / Datum ----- */
-function changeMonth(delta) {
-  let m = state.viewMonth + delta;
-  let y = state.viewYear;
-  if (m < 0) { m = 11; y -= 1; }
-  if (m > 11) { m = 0; y += 1; }
-  state.viewMonth = m;
-  state.viewYear = y;
-  renderCalendar();
-}
-
-function selectDate(key) {
-  const d = parseKey(key);
-  if (isNaN(d.getTime())) return;
-  state.selectedKey = key;
-  state.viewYear = d.getFullYear();
-  state.viewMonth = d.getMonth();
-  renderCalendar();
-  renderSelectedDay();
-}
-
-function showView(name) {
-  const views = ["calendar", "plan", "ranks", "settings"];
-  if (views.indexOf(name) === -1) return;
-  state.view = name;
-  views.forEach(function (v) {
-    const el = $("view-" + v);
-    if (el) el.classList.toggle("active", v === name);
-  });
-  document.querySelectorAll(".tab").forEach(function (tab) {
-    tab.classList.toggle("active", tab.dataset.view === name);
-  });
-  window.scrollTo(0, 0);
-  if (name === "ranks") {
-    renderRanks();
-    scrollRanksToMarker();   // erst nach dem Einblenden möglich
-  }
-}
-
-/* ----- Event-Listener (einmalig beim Start) ----- */
-function setupEventListeners() {
-  $("prev-month").addEventListener("click", function () { changeMonth(-1); });
-  $("next-month").addEventListener("click", function () { changeMonth(1); });
-
-  $("calendar-grid").addEventListener("click", function (e) {
-    const btn = e.target.closest(".day");
-    if (btn && btn.dataset.date) selectDate(btn.dataset.date);
-  });
-
-  document.querySelectorAll("[data-view]").forEach(function (el) {
-    el.addEventListener("click", function () { showView(el.dataset.view); });
-  });
-
-  // Modal
-  $("modal-cancel").addEventListener("click", closeModal);
-  $("modal-save").addEventListener("click", saveModal);
-  $("modal-delete").addEventListener("click", askDelete);
-  $("modal").addEventListener("click", function (e) { if (e.target === $("modal")) closeModal(); });
-
-  // Sicherheitsabfrage
-  $("confirm-cancel").addEventListener("click", closeConfirm);
-  $("confirm-ok").addEventListener("click", function () {
-    const action = state.confirmAction;
-    closeConfirm();
-    if (action) action();
-  });
-  $("confirm").addEventListener("click", function (e) { if (e.target === $("confirm")) closeConfirm(); });
-
-  // Einstellungen
-  $("reset-plan").addEventListener("click", function () {
-    askConfirm("Wochenplan zurücksetzen?", "Der Wochenplan wird ab heute geleert. Vergangene Tage und bereits abgehakte Einheiten bleiben unverändert.", "Zurücksetzen", resetPlan);
-  });
-  $("clear-data").addEventListener("click", function () {
-    askConfirm("Alle Daten löschen?", "Wochenplan, einzelne Tage und erledigte Einheiten werden vollständig von diesem Gerät gelöscht.", "Alles löschen", clearAllData);
-  });
-
-  // Esc schließt Fenster (Desktop)
-  document.addEventListener("keydown", function (e) {
-    if (e.key !== "Escape") return;
-    if (!$("confirm").hidden) closeConfirm();
-    else if (!$("modal").hidden) closeModal();
-  });
-}
-
-function fillTypeSelect() {
-  const select = $("f-type");
-  select.innerHTML = "";
-  Object.keys(TYPES).forEach(function (key) {
-    const opt = h("option", "", TYPES[key].icon + "  " + TYPES[key].label);
-    opt.value = key;
-    select.appendChild(opt);
-  });
-}
-
-/* ----- Start ----- */
-function init() {
-  try {
-    const now = new Date();
-    state.viewYear = now.getFullYear();
-    state.viewMonth = now.getMonth();
-    state.selectedKey = toKey(now);
-
-    loadData();          // fällt bei Problemen auf leere Standardwerte zurück
-    fillTypeSelect();
-    renderAll();
-    setupEventListeners();
-  } catch (error) {
-    console.error("GRITEX Startfehler:", error);
-  }
-}
-
-document.addEventListener("DOMContentLoaded", init);
+  label.textContent =
