@@ -1,9 +1,11 @@
-/* ===== GRITEX – Design (Version 0.6) ===== */
+/* ===== GRITEX – Design (Version 0.7) ===== */
 :root {
   --bg: #07090D;
   --panel: #11151C;
   --panel-2: #181D27;
   --accent: #8067FF;
+  --accent-light: #B9A8FF;
+  --accent-rgb: 128, 103, 255;
   --text: #F5F7FB;
   --muted: #858D9C;
   --green: #45E0A3;
@@ -120,7 +122,7 @@ svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width:
 }
 .card-icon {
   width: 46px; height: 46px; flex: none; border-radius: 14px; font-size: 23px;
-  background: rgba(128, 103, 255, 0.14);
+  background: rgba(var(--accent-rgb), 0.14);
   display: flex; align-items: center; justify-content: center;
 }
 .card-icon.rest { background: rgba(133, 141, 156, 0.16); }
@@ -161,7 +163,7 @@ svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width:
 .add-btn {
   width: 100%; min-height: 52px; border-radius: 16px; margin-top: 4px;
   border: 1.5px dashed var(--accent); color: var(--accent);
-  background: rgba(128, 103, 255, 0.08); font-weight: 700; font-size: 15px;
+  background: rgba(var(--accent-rgb), 0.08); font-weight: 700; font-size: 15px;
 }
 .add-btn:active { transform: scale(0.98); }
 
@@ -179,7 +181,7 @@ svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width:
 .plan-head strong { font-size: 13px; letter-spacing: 2px; }
 .mini-add {
   width: 44px; height: 44px; border-radius: 14px; font-size: 24px; line-height: 1;
-  background: rgba(128, 103, 255, 0.14); color: var(--accent);
+  background: rgba(var(--accent-rgb), 0.14); color: var(--accent);
 }
 .mini-add:active { transform: scale(0.94); }
 .plan-empty { display: block; padding: 4px 2px 0; font-size: 14px; color: var(--muted); }
@@ -191,7 +193,7 @@ svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width:
 .rank-name { font-size: 28px; font-weight: 900; letter-spacing: 3px; text-transform: uppercase; }
 .rank-count { margin-top: 2px; font-size: 14px; color: var(--muted); }
 .rank-progress { height: 8px; border-radius: 4px; background: rgba(255, 255, 255, 0.08); margin: 14px 8px 8px; overflow: hidden; }
-.rank-progress-fill { height: 100%; border-radius: 4px; background: linear-gradient(90deg, var(--accent), #B9A8FF); }
+.rank-progress-fill { height: 100%; border-radius: 4px; background: linear-gradient(90deg, var(--accent), var(--accent-light)); }
 .rank-next { font-size: 13px; color: var(--muted); }
 
 .path-title { margin: 0 0 8px 2px; }
@@ -208,7 +210,7 @@ svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width:
 
 .track, .track-fill { position: absolute; left: 24px; width: 4px; border-radius: 2px; }
 .track { background: rgba(255, 255, 255, 0.1); }
-.track-fill { background: linear-gradient(180deg, #B9A8FF, var(--accent)); }
+.track-fill { background: linear-gradient(180deg, var(--accent-light), var(--accent)); }
 
 .node-dot {
   position: absolute; left: 19px; width: 14px; height: 14px; border-radius: 50%;
@@ -223,7 +225,7 @@ svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width:
 }
 .rank-card strong { display: block; font-size: 17px; }
 .rank-card span { display: block; margin-top: 3px; font-size: 12px; color: var(--muted); }
-.rank-card.current { border-color: var(--accent); background: rgba(128, 103, 255, 0.12); }
+.rank-card.current { border-color: var(--accent); background: rgba(var(--accent-rgb), 0.12); }
 .rank-card.locked { opacity: 0.5; }
 .rank-card.locked .badge { filter: grayscale(1); }
 
@@ -232,7 +234,7 @@ svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width:
   display: flex; align-items: center; justify-content: center;
   background: var(--accent); color: #fff; font-size: 13px; font-weight: 800;
   border: 3px solid var(--bg);
-  box-shadow: 0 0 0 2px var(--accent), 0 0 18px rgba(128, 103, 255, 0.7);
+  box-shadow: 0 0 0 2px var(--accent), 0 0 18px rgba(var(--accent-rgb), 0.7);
 }
 
 /* ----- Einstellungen ----- */
@@ -244,6 +246,16 @@ svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width:
 .row-btn em { font-size: 20px; }
 .row-btn:active { opacity: 0.6; }
 .danger-text span { color: var(--red); }
+
+.theme-title { margin: 20px 0 8px 4px; }
+.theme-panel { padding: 16px; }
+.theme-row { display: flex; flex-wrap: wrap; gap: 16px; }
+.theme-swatch { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 62px; }
+.theme-swatch:active { transform: scale(0.95); }
+.theme-dot { width: 40px; height: 40px; border-radius: 50%; border: 3px solid transparent; }
+.theme-swatch.active .theme-dot { border-color: #fff; box-shadow: 0 0 0 2px var(--accent); }
+.theme-swatch span { font-size: 11px; color: var(--muted); }
+.theme-swatch.active span { color: var(--text); font-weight: 700; }
 
 /* ----- Bottom Navigation ----- */
 .tabbar {
@@ -260,7 +272,7 @@ svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width:
   color: var(--muted); font-size: 11px; font-weight: 600;
 }
 .tab:active { transform: scale(0.95); }
-.tab.active { color: var(--accent); background: rgba(128, 103, 255, 0.12); }
+.tab.active { color: var(--accent); background: rgba(var(--accent-rgb), 0.12); }
 
 /* ----- Modal (Bottom Sheet) ----- */
 .overlay {
