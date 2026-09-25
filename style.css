@@ -1,4 +1,4 @@
-/* ===== GRITEX – Design (Version 0.5) ===== */
+/* ===== GRITEX – Design (Version 0.6) ===== */
 :root {
   --bg: #07090D;
   --panel: #11151C;
@@ -58,6 +58,7 @@ svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width:
 .page-title { margin: 4px 0 16px; font-size: 28px; font-weight: 800; }
 .hint { color: var(--muted); font-size: 14px; line-height: 1.5; margin: -6px 0 16px; }
 .hint.below { margin: 14px 4px 0; }
+.day-hint { margin: -2px 0 10px; }
 
 .panel {
   background: linear-gradient(180deg, var(--panel-2), var(--panel));
@@ -134,7 +135,7 @@ svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width:
 }
 .edit-btn:active { transform: scale(0.94); }
 
-/* Abhaken */
+/* Abhaken (nur am heutigen Tag klickbar) */
 .check-btn {
   width: 44px; height: 44px; flex: none; border-radius: 50%;
   border: 2px solid rgba(255, 255, 255, 0.2);
@@ -142,6 +143,15 @@ svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width:
   font-size: 20px; font-weight: 800; color: transparent;
 }
 .check-btn:active { transform: scale(0.92); }
+
+/* Statische Anzeige "erledigt" bei vergangenen Tagen (nicht klickbar) */
+.check-static {
+  width: 44px; height: 44px; flex: none; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; font-weight: 800;
+  background: var(--green); color: #07090D; opacity: 0.85;
+}
+
 .card-item.done { border-color: rgba(69, 224, 163, 0.35); }
 .card-item.done .card-icon { background: rgba(69, 224, 163, 0.14); }
 .card-item.done .card-body strong { color: var(--muted); text-decoration: line-through; }
