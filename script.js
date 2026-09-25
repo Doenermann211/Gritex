@@ -1,8 +1,9 @@
 "use strict";
 
-/* ===== GRITEX – Version 0.5 =====
-   Kalender, Wochenplan (wiederholt sich), Ausnahmen pro Tag, Ruhetage,
-   Abhaken, Rangsystem, Einstellungen, Speicherung im LocalStorage. */
+/* ===== GRITEX – Version 0.6 =====
+   Kalender, Wochenplan MIT VERLAUF (Änderungen gelten ab dem Änderungstag,
+   Vergangenheit bleibt unverändert), Ausnahmen pro Tag, Ruhetage,
+   Abhaken (nur am aktuellen Tag), Rangsystem, Einstellungen, LocalStorage. */
 
 const MONTHS = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"];
 const WEEKDAYS = ["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"]; // Index = Date.getDay()
@@ -33,20 +34,23 @@ const RANKS = [
 const RANK_SEG = 140;   // Abstand zwischen zwei Rängen
 const RANK_PAD = 70;    // Rand oben und unten
 
-const KEY_PLAN = "gritex_weekly_plan";
+const KEY_PLAN_OLD = "gritex_weekly_plan";       // altes Format (Version 0.5 und früher)
+const KEY_PLAN_HISTORY = "gritex_plan_history";  // neues Format mit Verlauf
 const KEY_OVERRIDES = "gritex_overrides";
 const KEY_DONE = "gritex_done";
 
 /* Datenmodell:
-   weeklyPlan: 7 Listen (0 = Montag ... 6 = Sonntag) mit Standard-Einheiten.
-   overrides:  { "2026-10-07": { rest: false, items: [...] } } – ersetzt den Plan nur an diesem Tag.
-   done:       { "2026-10-07": { "<einheit-id>": true } } – erledigt pro Datum. */
+   planHistory: [{ from: "2026-09-25", plan: [7 Listen] }, ...] – aufsteigend sortiert.
+                Für ein Datum gilt immer die zuletzt begonnene Version mit from <= Datum.
+                So bleiben ältere Tage beim Ändern des Wochenplans unverändert.
+   overrides:   { "2026-10-07": { rest: false, items: [...] } } – ersetzt den Plan nur an diesem Tag.
+   done:        { "2026-10-07": { "<einheit-id>": true } } – erledigt pro Datum. */
 const state = {
   viewYear: 0,
   viewMonth: 0,
   selectedKey: "",
   view: "calendar",
-  weeklyPlan: emptyPlan(),
+  planHistory: [],
   overrides: {},
   done: {},
   markerY: 0,            // Position des Punkts im Rangweg
@@ -61,6 +65,7 @@ function $(id) { return document.getElementById(id); }
 function pad(n) { return n < 10 ? "0" + n : String(n); }
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
 function emptyPlan() { return [[], [], [], [], [], [], []]; }
+function todayKey() { return toKey(new Date()); }
 
 function toKey(date) {
   return date.getFullYear() + "-" + pad(date.getMonth() + 1) + "-" + pad(date.getDate());
@@ -138,18 +143,37 @@ function cleanList(list) {
   return list.map(cleanItem).filter(function (i) { return i !== null; });
 }
 
+function cleanPlanArray(arr) {
+  const plan = emptyPlan();
+  if (Array.isArray(arr)) {
+    for (let i = 0; i < 7; i++) plan[i] = cleanList(arr[i]);
+  }
+  return plan;
+}
+
 function isPlainObject(v) {
   return !!v && typeof v === "object" && !Array.isArray(v);
 }
 
 function loadData() {
-  // Wochenplan
-  const plan = safeGet(KEY_PLAN);
-  const cleanPlan = emptyPlan();
-  if (Array.isArray(plan)) {
-    for (let i = 0; i < 7; i++) cleanPlan[i] = cleanList(plan[i]);
+  // Wochenplan-Verlauf
+  const historyRaw = safeGet(KEY_PLAN_HISTORY);
+  let history = [];
+  if (Array.isArray(historyRaw)) {
+    historyRaw.forEach(function (entry) {
+      if (isPlainObject(entry) && /^\d{4}-\d{2}-\d{2}$/.test(entry.from)) {
+        history.push({ from: entry.from, plan: cleanPlanArray(entry.plan) });
+      }
+    });
+  } else {
+    // Kein Verlauf gespeichert -> evtl. altes Format (vor Version 0.6) migrieren
+    const oldPlan = safeGet(KEY_PLAN_OLD);
+    if (Array.isArray(oldPlan)) {
+      history.push({ from: "0001-01-01", plan: cleanPlanArray(oldPlan) });
+    }
   }
-  state.weeklyPlan = cleanPlan;
+  history.sort(function (a, b) { return a.from < b.from ? -1 : a.from > b.from ? 1 : 0; });
+  state.planHistory = history;
 
   // Ausnahmen pro Datum
   const ov = safeGet(KEY_OVERRIDES);
@@ -183,15 +207,43 @@ function loadData() {
 }
 
 function saveData() {
-  safeSet(KEY_PLAN, state.weeklyPlan);
+  safeSet(KEY_PLAN_HISTORY, state.planHistory);
   safeSet(KEY_OVERRIDES, state.overrides);
   safeSet(KEY_DONE, state.done);
 }
 
-/* ----- Tageslogik: Wochenplan + Ausnahme + Erledigt ----- */
-function getPlanItems(key) {
-  return (state.weeklyPlan[weekdayIndex(key)] || []).filter(isValid);
+/* ----- Wochenplan-Verlauf ----- */
+// Findet die Plan-Version, die an diesem Datum galt (letzte Version mit from <= key)
+function getActiveEntry(key) {
+  let best = null;
+  state.planHistory.forEach(function (entry) {
+    if (entry.from <= key && (!best || entry.from > best.from)) best = entry;
+  });
+  return best;
 }
+
+// Liefert die bearbeitbare Version für HEUTE. Gibt es noch keine für heute,
+// wird die aktuell gültige Version kopiert (Vergangenheit bleibt dadurch unangetastet).
+function ensureEditableEntry() {
+  const today = todayKey();
+  const active = getActiveEntry(today);
+  if (active && active.from === today) return active;
+
+  const newPlan = active
+    ? active.plan.map(function (list) { return list.map(function (i) { return Object.assign({}, i); }); })
+    : emptyPlan();
+  const newEntry = { from: today, plan: newPlan };
+  state.planHistory.push(newEntry);
+  state.planHistory.sort(function (a, b) { return a.from < b.from ? -1 : a.from > b.from ? 1 : 0; });
+  return newEntry;
+}
+
+function getPlanItems(key) {
+  const entry = getActiveEntry(key);
+  return entry ? (entry.plan[weekdayIndex(key)] || []).filter(isValid) : [];
+}
+
+/* ----- Tageslogik: Wochenplan + Ausnahme + Erledigt ----- */
 
 // Was gilt an diesem Datum? { rest, items, custom }
 function getDay(key) {
@@ -202,7 +254,7 @@ function getDay(key) {
   return { rest: false, items: getPlanItems(key), custom: false };
 }
 
-// Legt bei Bedarf eine Ausnahme an (Kopie des Wochenplans für diesen Tag, gleiche IDs)
+// Legt bei Bedarf eine Ausnahme an (Kopie des geltenden Plans für diesen Tag, gleiche IDs)
 function ensureOverride(key) {
   let ov = state.overrides[key];
   if (!ov) {
@@ -216,7 +268,9 @@ function isDone(key, id) {
   return !!(state.done[key] && state.done[key][id]);
 }
 
+// Abhaken ist nur für den heutigen Tag erlaubt
 function toggleDone(key, id) {
+  if (key !== todayKey()) return;
   if (!state.done[key]) state.done[key] = {};
   if (state.done[key][id]) {
     delete state.done[key][id];
@@ -230,15 +284,12 @@ function toggleDone(key, id) {
   renderRanks();
 }
 
-// Erledigt-Markierung entfernen (bei einem Datum oder bei allen, wenn dateKey fehlt)
-function pruneDone(id, dateKey) {
-  const keys = dateKey ? [dateKey] : Object.keys(state.done);
-  keys.forEach(function (k) {
-    if (state.done[k] && state.done[k][id]) {
-      delete state.done[k][id];
-      if (Object.keys(state.done[k]).length === 0) delete state.done[k];
-    }
-  });
+// Erledigt-Markierung an einem bestimmten Datum entfernen (z. B. wenn dort gelöscht wird)
+function pruneDoneAt(id, dateKey) {
+  if (state.done[dateKey] && state.done[dateKey][id]) {
+    delete state.done[dateKey][id];
+    if (Object.keys(state.done[dateKey]).length === 0) delete state.done[dateKey];
+  }
 }
 
 function getDayMarkers(key) {
@@ -409,7 +460,7 @@ function renderCalendar() {
   const offset = (new Date(year, month, 1).getDay() + 6) % 7;
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const totalCells = Math.ceil((offset + daysInMonth) / 7) * 7;
-  const todayKey = toKey(new Date());
+  const tKey = todayKey();
 
   const frag = document.createDocumentFragment();
   for (let i = 0; i < totalCells; i++) {
@@ -420,7 +471,7 @@ function renderCalendar() {
     btn.type = "button";
     btn.dataset.date = key;
     if (d.getMonth() !== month) btn.classList.add("other");
-    if (key === todayKey) btn.classList.add("today");
+    if (key === tKey) btn.classList.add("today");
     if (key === state.selectedKey) btn.classList.add("selected");
     btn.setAttribute("aria-label", formatDate(d));
 
@@ -437,8 +488,9 @@ function renderCalendar() {
 }
 
 /* ----- Trainingskarte -----
-   Mit dayKey (Tagesansicht) bekommt die Karte einen Haken zum Abhaken. */
-function buildCard(item, onEdit, dayKey) {
+   dayKey: Datum der Tagesansicht (für den Erledigt-Status).
+   editable: nur beim heutigen Tag true -> dann ist der Haken klickbar. */
+function buildCard(item, onEdit, dayKey, editable) {
   const t = typeOf(item.type);
   const done = dayKey ? isDone(dayKey, item.id) : false;
   const card = h("div", "card-item" + (done ? " done" : ""));
@@ -455,10 +507,16 @@ function buildCard(item, onEdit, dayKey) {
   card.appendChild(edit);
 
   if (dayKey) {
-    const check = makeBtn("check-btn", "✓", function () { toggleDone(dayKey, item.id); });
-    check.setAttribute("aria-label", done ? "Als nicht erledigt markieren" : "Als erledigt markieren");
-    check.setAttribute("aria-pressed", done ? "true" : "false");
-    card.appendChild(check);
+    if (editable) {
+      const check = makeBtn("check-btn", "✓", function () { toggleDone(dayKey, item.id); });
+      check.setAttribute("aria-label", done ? "Als nicht erledigt markieren" : "Als erledigt markieren");
+      check.setAttribute("aria-pressed", done ? "true" : "false");
+      card.appendChild(check);
+    } else if (done) {
+      const staticCheck = h("div", "check-static", "✓");
+      staticCheck.setAttribute("aria-label", "Erledigt");
+      card.appendChild(staticCheck);
+    }
   }
   return card;
 }
@@ -471,7 +529,8 @@ function renderSelectedDay() {
   if (!label || !title || !content) return;
 
   const sel = parseKey(state.selectedKey);
-  const today = parseKey(toKey(new Date()));
+  const tKey = todayKey();
+  const today = parseKey(tKey);
   const diff = Math.round((sel - today) / 86400000);
   label.textContent = diff === 0 ? "HEUTE" : diff === 1 ? "MORGEN" : diff === -1 ? "GESTERN" : "AUSGEWÄHLT";
   title.textContent = formatDate(sel);
@@ -479,6 +538,7 @@ function renderSelectedDay() {
   content.innerHTML = "";
   const key = state.selectedKey;
   const day = getDay(key);
+  const isToday = key === tKey;
 
   if (day.rest) {
     const card = h("div", "card-item");
@@ -497,8 +557,11 @@ function renderSelectedDay() {
     day.items.forEach(function (item) {
       content.appendChild(buildCard(item, function () {
         openModal({ kind: "session", date: key, id: item.id });
-      }, key));
+      }, key, isToday));
     });
+    if (!isToday) {
+      content.appendChild(h("p", "hint day-hint", "Abhaken ist nur am aktuellen Tag möglich."));
+    }
   }
 
   content.appendChild(makeBtn("add-btn", "+ Training hinzufügen", function () {
@@ -523,6 +586,9 @@ function renderWeeklyPlan() {
   if (!list) return;
   list.innerHTML = "";
 
+  const entry = getActiveEntry(todayKey());
+  const plan = entry ? entry.plan : emptyPlan();
+
   PLAN_DAYS.forEach(function (name, dayIndex) {
     const wrap = h("div", "plan-day");
     const head = h("div", "plan-head");
@@ -535,7 +601,7 @@ function renderWeeklyPlan() {
     head.appendChild(add);
     wrap.appendChild(head);
 
-    const items = (state.weeklyPlan[dayIndex] || []).filter(isValid);
+    const items = (plan[dayIndex] || []).filter(isValid);
     if (items.length === 0) {
       wrap.appendChild(h("span", "plan-empty", "Noch nichts geplant"));
     } else {
@@ -577,7 +643,13 @@ function updateLock() {
 /* ----- Modal: hinzufügen / bearbeiten ----- */
 function findItem(ctx) {
   if (!ctx.id) return null;
-  const list = ctx.kind === "plan" ? (state.weeklyPlan[ctx.day] || []) : getDay(ctx.date).items;
+  let list;
+  if (ctx.kind === "plan") {
+    const entry = getActiveEntry(todayKey());
+    list = entry ? (entry.plan[ctx.day] || []) : [];
+  } else {
+    list = getDay(ctx.date).items;
+  }
   for (let i = 0; i < list.length; i++) {
     if (list[i] && list[i].id === ctx.id) return list[i];
   }
@@ -590,7 +662,7 @@ function openModal(ctx) {
 
   $("modal-title").textContent = item ? "Training bearbeiten" : "Training hinzufügen";
   $("modal-sub").textContent = ctx.kind === "plan"
-    ? "Jede Woche: " + PLAN_DAYS[ctx.day]
+    ? "Jede Woche: " + PLAN_DAYS[ctx.day] + " (Änderung gilt ab heute)"
     : formatDate(parseKey(ctx.date)) + " (nur dieser Tag)";
 
   $("f-type").value = item ? item.type : "running";
@@ -609,9 +681,10 @@ function closeModal() {
   updateLock();
 }
 
-// Liste, in die gespeichert wird: Wochenplan-Tag oder Ausnahme dieses Datums
+// Liste, in die gespeichert wird: die bearbeitbare (heutige) Wochenplan-Version
+// oder die Ausnahme dieses Datums
 function getWritableList(ctx) {
-  if (ctx.kind === "plan") return state.weeklyPlan[ctx.day];
+  if (ctx.kind === "plan") return ensureEditableEntry().plan[ctx.day];
   const ov = ensureOverride(ctx.date);
   ov.rest = false;   // Training an einem Ruhetag hebt den Ruhetag auf
   return ov.items;
@@ -654,7 +727,9 @@ function confirmDelete() {
     for (let i = 0; i < list.length; i++) {
       if (list[i] && list[i].id === ctx.id) { list.splice(i, 1); break; }
     }
-    pruneDone(ctx.id, ctx.kind === "session" ? ctx.date : null);
+    // Nur bei einer Einzeltag-Einheit den Erledigt-Status genau dieses Tages entfernen.
+    // Beim Löschen aus dem Wochenplan bleibt die bisherige Historie erhalten.
+    if (ctx.kind === "session") pruneDoneAt(ctx.id, ctx.date);
     saveData();
   }
   closeModal();
@@ -682,14 +757,17 @@ function askDelete() {
 }
 
 /* ----- Einstellungen ----- */
+// Setzt den Wochenplan ab heute auf leer zurück. Vergangene Tage und
+// bereits abgehakte Einheiten bleiben unverändert erhalten.
 function resetPlan() {
-  state.weeklyPlan = emptyPlan();
+  const entry = ensureEditableEntry();
+  entry.plan = emptyPlan();
   saveData();
   renderAll();
 }
 
 function clearAllData() {
-  state.weeklyPlan = emptyPlan();
+  state.planHistory = [];
   state.overrides = {};
   state.done = {};
   saveData();
@@ -766,10 +844,10 @@ function setupEventListeners() {
 
   // Einstellungen
   $("reset-plan").addEventListener("click", function () {
-    askConfirm("Wochenplan zurücksetzen?", "Alle Einheiten im Wochenplan werden entfernt. Einzelne Tage im Kalender bleiben unverändert.", "Zurücksetzen", resetPlan);
+    askConfirm("Wochenplan zurücksetzen?", "Der Wochenplan wird ab heute geleert. Vergangene Tage und bereits abgehakte Einheiten bleiben unverändert.", "Zurücksetzen", resetPlan);
   });
   $("clear-data").addEventListener("click", function () {
-    askConfirm("Alle Daten löschen?", "Wochenplan, einzelne Tage und erledigte Einheiten werden von diesem Gerät gelöscht.", "Alles löschen", clearAllData);
+    askConfirm("Alle Daten löschen?", "Wochenplan, einzelne Tage und erledigte Einheiten werden vollständig von diesem Gerät gelöscht.", "Alles löschen", clearAllData);
   });
 
   // Esc schließt Fenster (Desktop)
